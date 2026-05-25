@@ -160,6 +160,79 @@ fn run_fails_when_any_job_fails() {
 }
 
 #[test]
+fn add_appends_multiple_jobs_to_same_hook() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo one"]);
+    run_krok(repo, &["add", "pre-commit", "echo two"]);
+    run_krok(repo, &["add", "pre-commit", "echo three"]);
+
+    let content = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
+        .expect("read config");
+    let value: serde_yaml::Value = serde_yaml::from_str(&content).expect("parse yaml");
+    let jobs = value
+        .get("hooks")
+        .and_then(|h| h.get("pre-commit"))
+        .and_then(|j| j.as_sequence())
+        .expect("hooks.pre-commit must be a sequence");
+
+    assert_eq!(
+        jobs.len(),
+        3,
+        "expected 3 jobs after three adds, got: {content}"
+    );
+}
+
+#[test]
+fn add_rejects_duplicate_key() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo same"]);
+
+    let output = Command::new(krok_bin())
+        .args(["add", "pre-commit", "echo same"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+
+    assert!(
+        !output.status.success(),
+        "duplicate add should fail; stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("already registered"),
+        "expected duplicate-key error, got stderr: {stderr}"
+    );
+}
+
+#[test]
+fn add_with_no_command_args_bails() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["add", "pre-commit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+
+    assert!(
+        !output.status.success(),
+        "add without a command should fail; stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn run_forwards_hook_args_to_jobs() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();
