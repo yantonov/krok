@@ -233,6 +233,63 @@ fn add_with_no_command_args_bails() {
 }
 
 #[test]
+fn add_preserves_existing_non_krok_hook() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let hooks_dir = repo.join(".git").join("hooks");
+    std::fs::create_dir_all(&hooks_dir).expect("create hooks dir");
+
+    let existing_hook = hooks_dir.join("pre-commit");
+    let existing_content = "#!/usr/bin/env bash\necho 'original hook'\n";
+    std::fs::write(&existing_hook, existing_content).expect("write existing hook");
+
+    run_krok(repo, &["add", "pre-commit", "echo new"]);
+
+    let preserved = hooks_dir
+        .join("pre-commit-hooks")
+        .join("existing-pre-commit");
+    assert!(
+        preserved.exists(),
+        "preserved hook file not found at {}",
+        preserved.display()
+    );
+    let preserved_content = std::fs::read_to_string(&preserved).expect("read preserved hook");
+    assert_eq!(
+        preserved_content, existing_content,
+        "preserved hook content does not match original"
+    );
+
+    let config = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
+        .expect("read config");
+    let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
+    let jobs = value
+        .get("hooks")
+        .and_then(|h| h.get("pre-commit"))
+        .and_then(|j| j.as_sequence())
+        .expect("hooks.pre-commit must be a sequence");
+
+    assert!(
+        jobs.len() >= 2,
+        "expected at least 2 jobs (preserved + new), got: {config}"
+    );
+    let first = &jobs[0];
+    assert_eq!(
+        first.get("key").and_then(|k| k.as_str()),
+        Some("existing-hook"),
+        "preserved hook should be registered as the first job: {config}"
+    );
+
+    // Wrapper at .git/hooks/pre-commit should now be the krok wrapper, not the original.
+    let wrapper_content = std::fs::read_to_string(&existing_hook).expect("read wrapper");
+    assert!(
+        wrapper_content.contains("krok run"),
+        "wrapper should now invoke krok run, got: {wrapper_content}"
+    );
+}
+
+#[test]
 fn run_forwards_hook_args_to_jobs() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();
