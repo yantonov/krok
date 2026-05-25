@@ -25,6 +25,11 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Restore the wrapper script for a hook that has been replaced or removed
+    Recover {
+        /// Name of the git hook (e.g. pre-commit)
+        hook_name: String,
+    },
 }
 
 pub enum Invocation {
@@ -36,11 +41,15 @@ pub enum Invocation {
         hook_name: String,
         hook_args: Vec<String>,
     },
+    Recover {
+        hook_name: String,
+    },
 }
 
 pub fn parse() -> Invocation {
     match Cli::parse().command {
         Commands::Add { hook_name, args } => Invocation::Add { hook_name, args },
         Commands::Run { hook_name, args } => Invocation::Run { hook_name, hook_args: args },
+        Commands::Recover { hook_name } => Invocation::Recover { hook_name },
     }
 }

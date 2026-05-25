@@ -12,6 +12,7 @@
 - [Commands](#commands)
   - [add](#add)
   - [run](#run)
+  - [recover](#recover)
 - [Configuration file](#configuration-file)
 - [Run mode](#run-mode)
 - [Error handling](#error-handling)
@@ -106,6 +107,23 @@ krok run <hook-name> [hook-args...]
 ```
 
 Invoked by the wrapper script that git executes — you normally do not call this yourself. It loads the job list for `<hook-name>` from `.git/krok-config.yml` and runs each command sequentially, forwarding any arguments git passed to the hook.
+
+### recover
+
+```sh
+krok recover <hook-name>
+```
+
+Restores the wrapper script at `.git/hooks/<hook-name>` when it has drifted from what `krok` expects. Use this after another tool overwrites the hook, after you upgrade `krok` and want to bring the wrapper in sync, or after the file has been deleted.
+
+The hook must already have a config entry (i.e. you must have previously run `krok add <hook-name> ...`); otherwise `recover` errors out. Behavior based on the current state of the wrapper file:
+
+| Current state | Action | Message |
+|---|---|---|
+| Matches the canonical wrapper | nothing | `hook '<name>' is up to date` |
+| File missing | write the wrapper | `wrote wrapper for '<name>'` |
+| Older / modified krok wrapper | overwrite | `replaced outdated krok wrapper for '<name>'` |
+| A foreign (non-krok) script | preserve it to `<hook>-hooks/existing-<hook>` and register as a job, then write the wrapper | `preserved foreign hook and wrote krok wrapper for '<name>'` |
 
 ---
 

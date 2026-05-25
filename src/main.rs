@@ -21,6 +21,9 @@ fn main() -> Result<()> {
         cli::Invocation::Run { hook_name, hook_args } => {
             commands::run::run(&logger, &hook_name, &hook_args)?
         }
+        cli::Invocation::Recover { hook_name } => {
+            commands::recover::run(&logger, &hook_name)?
+        }
     }
     Ok(())
 }

@@ -362,3 +362,176 @@ fn run_forwards_hook_args_to_jobs() {
         "hook arg not forwarded to job: {content}"
     );
 }
+
+#[test]
+fn recover_aligned_is_noop() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+    let wrapper = repo.join(".git").join("hooks").join("pre-commit");
+    let before = std::fs::read_to_string(&wrapper).expect("read wrapper");
+
+    let output = Command::new(krok_bin())
+        .args(["recover", "pre-commit"])
+        .current_dir(repo)
+        .env_remove("KROK_DEBUG")
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "krok recover failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = std::fs::read_to_string(&wrapper).expect("read wrapper");
+    assert_eq!(before, after, "wrapper changed on no-op recover");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("up to date"),
+        "notice not visible on stdout (without KROK_DEBUG), got: {stdout}"
+    );
+}
+
+#[test]
+fn recover_writes_wrapper_when_missing() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+    let wrapper = repo.join(".git").join("hooks").join("pre-commit");
+    std::fs::remove_file(&wrapper).expect("remove wrapper");
+
+    let output = Command::new(krok_bin())
+        .args(["recover", "pre-commit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "krok recover failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert!(wrapper.exists(), "wrapper not restored");
+    let content = std::fs::read_to_string(&wrapper).expect("read wrapper");
+    assert!(
+        content.contains("exec krok run pre-commit"),
+        "wrapper content unexpected: {content}"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("wrote wrapper"), "stdout: {stdout}");
+}
+
+#[test]
+fn recover_replaces_drifted_krok_wrapper() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+    let wrapper = repo.join(".git").join("hooks").join("pre-commit");
+
+    // Drift: still contains the krok marker, but the rest of the content differs.
+    let drifted = "#!/usr/bin/env bash\n# git hook manager wrapper (old)\nexec krok run pre-commit \"$@\"\n";
+    std::fs::write(&wrapper, drifted).expect("write drifted wrapper");
+
+    let output = Command::new(krok_bin())
+        .args(["recover", "pre-commit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "krok recover failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = std::fs::read_to_string(&wrapper).expect("read wrapper");
+    assert_ne!(after, drifted, "drifted content not replaced");
+    assert!(
+        after.contains("exec krok run pre-commit"),
+        "wrapper content unexpected: {after}"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("replaced outdated"), "stdout: {stdout}");
+}
+
+#[test]
+fn recover_preserves_foreign_hook() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+    let wrapper = repo.join(".git").join("hooks").join("pre-commit");
+
+    let foreign = "#!/usr/bin/env bash\necho 'someone replaced the wrapper'\n";
+    std::fs::write(&wrapper, foreign).expect("write foreign wrapper");
+
+    let output = Command::new(krok_bin())
+        .args(["recover", "pre-commit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "krok recover failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let preserved = repo
+        .join(".git")
+        .join("hooks")
+        .join("pre-commit-hooks")
+        .join("existing-pre-commit");
+    assert!(preserved.exists(), "preserved file missing");
+    let preserved_content = std::fs::read_to_string(&preserved).expect("read preserved");
+    assert_eq!(preserved_content, foreign, "preserved content mismatch");
+
+    let after_wrapper = std::fs::read_to_string(&wrapper).expect("read wrapper");
+    assert!(
+        after_wrapper.contains("exec krok run pre-commit"),
+        "wrapper not restored to krok form: {after_wrapper}"
+    );
+
+    let config = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
+        .expect("read config");
+    let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
+    let jobs = value
+        .get("hooks")
+        .and_then(|h| h.get("pre-commit"))
+        .and_then(|j| j.as_sequence())
+        .expect("hooks.pre-commit must be a sequence");
+    assert!(
+        jobs.iter().any(|j| {
+            j.get("key").and_then(|k| k.as_str()) == Some("existing-hook")
+        }),
+        "existing-hook job not registered: {config}"
+    );
+}
+
+#[test]
+fn recover_without_config_entry_fails() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["recover", "pre-commit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "recover should fail when hook was never installed"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("never installed") || stderr.contains("nothing to recover"),
+        "expected 'nothing to recover' error, got stderr: {stderr}"
+    );
+}
