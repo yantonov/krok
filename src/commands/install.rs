@@ -35,7 +35,6 @@ pub fn ensure_installed(git_dir: &Path, hook_name: &str) -> Result<()> {
         if !jobs.iter().any(|j| j.key == "existing-hook") {
             jobs.push(Job {
                 key: "existing-hook".to_string(),
-                title: "existing tool".to_string(),
                 cmd: relative_cmd,
             });
             println!("preserved existing hook as {}", saved_path.display());

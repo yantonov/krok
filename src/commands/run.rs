@@ -20,7 +20,7 @@ pub fn run(hook_name: &str, hook_args: &[String]) -> Result<()> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
 
     for job in jobs {
-        println!("[krok] running '{}': {}", job.title, job.cmd);
+        println!("[krok] running '{}': {}", job.key, job.cmd);
 
         let resolved = resolve_cmd(&job.cmd, &hooks_dir);
         let cmd = if hook_args.is_empty() {
@@ -38,8 +38,8 @@ pub fn run(hook_name: &str, hook_args: &[String]) -> Result<()> {
         if !status.success() {
             let code = status.code().unwrap_or(1);
             eprintln!(
-                "[krok] hook '{}' failed at job '{}' (title: {}, cmd: {})",
-                hook_name, job.key, job.title, job.cmd
+                "[krok] hook '{}' failed at job '{}' (cmd: {})",
+                hook_name, job.key, job.cmd
             );
             process::exit(code);
         }

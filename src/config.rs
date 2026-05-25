@@ -12,7 +12,6 @@ pub struct Config {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Job {
     pub key: String,
-    pub title: String,
     pub cmd: String,
 }
 

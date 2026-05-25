@@ -116,18 +116,15 @@ Jobs are stored in `.git/krok-config.yml`:
 hooks:
   pre-commit:
   - key: cargo-test
-    title: cargo
     cmd: cargo test
   - key: cargo-clippy-D-warnings
-    title: cargo
     cmd: cargo clippy -- -D warnings
 ```
 
-| Field   | Description                                      |
-|---------|--------------------------------------------------|
-| `key`   | Unique identifier within the hook                |
-| `title` | Human-readable label shown during execution      |
-| `cmd`   | Shell command passed to `$SHELL -c`              |
+| Field | Description                          |
+|-------|--------------------------------------|
+| `key` | Unique identifier within the hook    |
+| `cmd` | Shell command passed to `$SHELL -c`  |
 
 You can edit this file directly to reorder jobs, change commands, or remove entries.
 
@@ -150,7 +147,7 @@ Output from each job is forwarded directly to the terminal.
 Jobs run **sequentially**. If any job exits with a non-zero code, `krok` stops immediately and prints:
 
 ```
-[krok] hook 'pre-commit' failed at job 'cargo-test' (title: cargo, cmd: cargo test)
+[krok] hook 'pre-commit' failed at job 'cargo-test' (cmd: cargo test)
 ```
 
 The hook itself exits with the same non-zero code, which causes git to abort the operation.

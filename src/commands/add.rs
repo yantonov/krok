@@ -19,7 +19,6 @@ pub fn run(hook_name: &str, args: &[String]) -> Result<()> {
 
     let cmd = args.join(" ");
     let key = derive_key(&cmd);
-    let title = args[0].clone();
 
     if jobs.iter().any(|j| j.key == key) {
         bail!(
@@ -31,7 +30,6 @@ pub fn run(hook_name: &str, args: &[String]) -> Result<()> {
 
     jobs.push(Job {
         key: key.clone(),
-        title,
         cmd: cmd.clone(),
     });
     save_config(&git_dir, &config)?;
