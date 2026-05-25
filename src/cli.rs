@@ -9,12 +9,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Install krok as a git hook
-    Install {
-        /// Name of the git hook (e.g. pre-commit)
-        hook_name: String,
-    },
-    /// Add a command to a hook's job list
+    /// Add a command to a hook's job list (installs the hook if needed)
     Add {
         /// Name of the git hook (e.g. pre-commit)
         hook_name: String,
@@ -33,9 +28,6 @@ enum Commands {
 }
 
 pub enum Invocation {
-    Install {
-        hook_name: String,
-    },
     Add {
         hook_name: String,
         args: Vec<String>,
@@ -48,7 +40,6 @@ pub enum Invocation {
 
 pub fn parse() -> Invocation {
     match Cli::parse().command {
-        Commands::Install { hook_name } => Invocation::Install { hook_name },
         Commands::Add { hook_name, args } => Invocation::Add { hook_name, args },
         Commands::Run { hook_name, args } => Invocation::Run { hook_name, hook_args: args },
     }

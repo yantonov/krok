@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, bail};
 
+use crate::commands::install::ensure_installed;
 use crate::config::{Job, load_config, save_config};
 use crate::git::find_git_root;
 
@@ -11,14 +12,7 @@ pub fn run(hook_name: &str, args: &[String]) -> Result<()> {
     let cwd = std::env::current_dir().context("failed to get current directory")?;
     let (_repo_root, git_dir) = find_git_root(&cwd)?;
 
-    let hook_path = git_dir.join("hooks").join(hook_name);
-    if !hook_path.exists() {
-        bail!(
-            "hook '{}' is not installed — run `krok install {}` first",
-            hook_name,
-            hook_name
-        );
-    }
+    ensure_installed(&git_dir, hook_name)?;
 
     let mut config = load_config(&git_dir)?;
     let jobs = config.hooks.entry(hook_name.to_string()).or_default();

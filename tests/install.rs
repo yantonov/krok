@@ -38,8 +38,8 @@ fn installing_two_hooks_merges_config() {
 
     git_init(repo);
 
-    run_krok(repo, &["install", "pre-commit"]);
-    run_krok(repo, &["install", "pre-push"]);
+    run_krok(repo, &["add", "pre-commit", "echo", "one"]);
+    run_krok(repo, &["add", "pre-push", "echo", "two"]);
 
     let config_path = repo.join(".git").join("krok-config.yml");
     let content = std::fs::read_to_string(&config_path).expect("read config");
@@ -67,4 +67,35 @@ fn installing_two_hooks_merges_config() {
         repo.join(".git").join("hooks").join("pre-push").exists(),
         "pre-push wrapper missing"
     );
+}
+
+#[test]
+fn add_on_uninstalled_hook_installs_wrapper_then_adds_job() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+
+    git_init(repo);
+
+    // No prior `install` call.
+    run_krok(repo, &["add", "pre-commit", "echo", "hello"]);
+
+    let wrapper = repo.join(".git").join("hooks").join("pre-commit");
+    assert!(
+        wrapper.exists(),
+        "pre-commit wrapper missing — add should have installed it"
+    );
+
+    let content =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
+    let value: serde_yaml::Value = serde_yaml::from_str(&content).expect("parse yaml");
+    let jobs = value
+        .get("hooks")
+        .and_then(|h| h.get("pre-commit"))
+        .and_then(|j| j.as_sequence())
+        .expect("config must have hooks.pre-commit as a sequence");
+
+    let has_echo_job = jobs.iter().any(|job| {
+        job.get("cmd").and_then(|c| c.as_str()) == Some("echo hello")
+    });
+    assert!(has_echo_job, "expected 'echo hello' job in config: {content}");
 }

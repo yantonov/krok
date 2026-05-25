@@ -1,30 +1,18 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 
 use crate::config::{Config, Job, load_config, save_config};
-use crate::git::find_git_root;
 
-pub fn run(hook_name: &str) -> Result<()> {
-    let cwd = std::env::current_dir().context("failed to get current directory")?;
-    let (repo_root, git_dir) = find_git_root(&cwd)?;
-
-    if cwd != repo_root {
-        bail!(
-            "install must be run from the repository root ({})",
-            repo_root.display()
-        );
-    }
-
+pub fn ensure_installed(git_dir: &Path, hook_name: &str) -> Result<()> {
     let hooks_dir = git_dir.join("hooks");
     fs::create_dir_all(&hooks_dir).context("failed to create hooks directory")?;
 
     let hook_path = hooks_dir.join(hook_name);
-    let mut config = load_config(&git_dir)?;
+    let mut config = load_config(git_dir)?;
 
     if is_fully_installed(&hook_path, &hooks_dir, hook_name, &config) {
-        println!("hook '{}' already installed (no changes)", hook_name);
         return Ok(());
     }
 
@@ -62,7 +50,7 @@ pub fn run(hook_name: &str) -> Result<()> {
     set_executable(&hook_path)?;
 
     if config != original {
-        save_config(&git_dir, &config)?;
+        save_config(git_dir, &config)?;
     }
 
     println!(

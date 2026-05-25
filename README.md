@@ -10,8 +10,8 @@
   - [Download prebuilt binary](#download-prebuilt-binary)
   - [Build from source](#build-from-source)
 - [Commands](#commands)
-  - [install](#install)
   - [add](#add)
+  - [run](#run)
 - [Configuration file](#configuration-file)
 - [Run mode](#run-mode)
 - [Error handling](#error-handling)
@@ -20,7 +20,9 @@
 
 ## How it works
 
-When you run `krok install <hook-name>`, the binary copies itself into `.git/hooks/<hook-name>`. Git then calls that binary when the hook fires. Because the executable name matches the hook name, `krok` detects it is in run mode and executes all registered jobs in order.
+The first time you run `krok add <hook-name> <cmd>`, krok writes a small bash wrapper to `.git/hooks/<hook-name>`. When git fires the hook, the wrapper invokes `krok run <hook-name> "$@"`, which executes every job registered for that hook in order.
+
+Subsequent `krok add` calls for the same hook just append to the job list — the wrapper is only installed once.
 
 Jobs are stored in `.git/krok-config.yml`, which you can inspect or edit directly.
 
@@ -76,35 +78,17 @@ krok --version
 
 ## Commands
 
-### install
-
-```sh
-krok install <hook-name>
-```
-
-Must be run from the **repository root** (the directory containing `.git`).
-
-- Creates `.git/krok-config.yml` if it does not exist.
-- If a hook script already exists at `.git/hooks/<hook-name>`, it is moved to `.git/hooks/<hook-name>-hooks/existing-<hook-name>` and registered as the first job so it continues to run.
-- Copies the `krok` binary to `.git/hooks/<hook-name>`.
-- Adds a default `hello` job (`echo "test hook"`) as a smoke-test placeholder.
-
-**Example:**
-
-```sh
-krok install pre-commit
-```
-
 ### add
 
 ```sh
 krok add <hook-name> <command> [args...]
 ```
 
-Appends a new job to the named hook's job list. The hook must already be installed.
+Appends a new job to the named hook's job list. On the first `add` for a hook, krok also installs the wrapper script at `.git/hooks/<hook-name>`; subsequent calls only update `.git/krok-config.yml`.
 
 - The job key is derived from the command (ASCII alphanumeric characters, spaces replaced with `-`).
-- Returns an error if a job with the same key already exists.
+- Returns an error if a job with the same key already exists for that hook.
+- If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/hooks/<hook-name>-hooks/existing-<hook-name>` and registered as the first job so it continues to run.
 
 **Examples:**
 
@@ -113,6 +97,14 @@ krok add pre-commit cargo test
 krok add pre-commit cargo clippy -- -D warnings
 krok add commit-msg ./scripts/check-message.sh
 ```
+
+### run
+
+```sh
+krok run <hook-name> [hook-args...]
+```
+
+Invoked by the wrapper script that git executes — you normally do not call this yourself. It loads the job list for `<hook-name>` from `.git/krok-config.yml` and runs each command sequentially, forwarding any arguments git passed to the hook.
 
 ---
 
@@ -123,9 +115,6 @@ Jobs are stored in `.git/krok-config.yml`:
 ```yaml
 hooks:
   pre-commit:
-  - key: hello
-    title: test hook
-    cmd: echo "test hook"
   - key: cargo-test
     title: cargo
     cmd: cargo test
@@ -146,7 +135,7 @@ You can edit this file directly to reorder jobs, change commands, or remove entr
 
 ## Run mode
 
-When git fires a hook, it calls the `krok` binary installed at `.git/hooks/<hook-name>`. `krok` detects it has no subcommand arguments, determines the hook name from its own executable filename, and runs each job via:
+When git fires a hook, the wrapper at `.git/hooks/<hook-name>` invokes `krok run <hook-name> "$@"`, forwarding any arguments git passed. `krok` then reads `.git/krok-config.yml` and executes each job in order via:
 
 ```sh
 $SHELL -c "<cmd>"
