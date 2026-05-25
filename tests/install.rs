@@ -99,3 +99,84 @@ fn add_on_uninstalled_hook_installs_wrapper_then_adds_job() {
     });
     assert!(has_echo_job, "expected 'echo hello' job in config: {content}");
 }
+
+fn fwd_slash(p: &Path) -> String {
+    p.to_string_lossy().replace('\\', "/")
+}
+
+#[test]
+fn run_executes_jobs_in_registered_order() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let log = repo.join("order.log");
+    let log_str = fwd_slash(&log);
+
+    run_krok(repo, &["add", "pre-commit", &format!("echo first >> {log_str}")]);
+    run_krok(repo, &["add", "pre-commit", &format!("echo second >> {log_str}")]);
+    run_krok(repo, &["add", "pre-commit", &format!("echo third >> {log_str}")]);
+
+    run_krok(repo, &["run", "pre-commit"]);
+
+    let content = std::fs::read_to_string(&log).expect("read log file");
+    let lines: Vec<&str> = content.lines().collect();
+    assert_eq!(
+        lines,
+        vec!["first", "second", "third"],
+        "jobs ran out of order: {content}"
+    );
+}
+
+#[test]
+fn run_fails_when_any_job_fails() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let marker = repo.join("after.txt");
+    let marker_str = fwd_slash(&marker);
+
+    run_krok(repo, &["add", "pre-commit", "true"]);
+    run_krok(repo, &["add", "pre-commit", "false"]);
+    run_krok(repo, &["add", "pre-commit", &format!("echo done > {marker_str}")]);
+
+    let output = Command::new(krok_bin())
+        .args(["run", "pre-commit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok run");
+
+    assert!(
+        !output.status.success(),
+        "krok run should fail when a job fails; stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !marker.exists(),
+        "third job ran despite earlier failure — marker file should not exist"
+    );
+}
+
+#[test]
+fn run_forwards_hook_args_to_jobs() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let captured = repo.join("captured.txt");
+    let captured_str = fwd_slash(&captured);
+
+    // Stored cmd: "echo > /path/captured.txt". At run time, hook_args are appended,
+    // so sh sees `echo > /path/captured.txt passed-arg` and writes "passed-arg" to the file.
+    run_krok(repo, &["add", "pre-commit", &format!("echo > {captured_str}")]);
+
+    run_krok(repo, &["run", "pre-commit", "passed-arg"]);
+
+    let content = std::fs::read_to_string(&captured).expect("read captured file");
+    assert!(
+        content.contains("passed-arg"),
+        "hook arg not forwarded to job: {content}"
+    );
+}
