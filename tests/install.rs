@@ -233,6 +233,58 @@ fn add_with_no_command_args_bails() {
 }
 
 #[test]
+fn info_silent_without_krok_debug() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["add", "pre-commit", "echo hi"])
+        .current_dir(repo)
+        .env_remove("KROK_DEBUG")
+        .output()
+        .expect("failed to execute krok");
+
+    assert!(
+        output.status.success(),
+        "krok add failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.trim().is_empty(),
+        "expected no stdout without KROK_DEBUG, got: {stdout}"
+    );
+}
+
+#[test]
+fn info_visible_with_krok_debug() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["add", "pre-commit", "echo hi"])
+        .current_dir(repo)
+        .env("KROK_DEBUG", "1")
+        .output()
+        .expect("failed to execute krok");
+
+    assert!(
+        output.status.success(),
+        "krok add failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("added job"),
+        "expected 'added job' line with KROK_DEBUG=1, got: {stdout}"
+    );
+}
+
+#[test]
 fn add_preserves_existing_non_krok_hook() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();
