@@ -36,13 +36,15 @@ Jobs are stored in `.git/krok-config.yml`, which you can inspect or edit directl
 
 ### Automated installation
 
-Downloads the latest release and installs it to `~/bin` in one step. Requires `curl` and `jq`.
+Downloads the latest release and installs it to `~/bin` in one step. Requires `curl`.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/yantonov/git-hook-runner/master/bin/download.sh | sh
 ```
 
 ### Download prebuilt binary
+
+If you don't like to use curl + bash approach due to security reasons, for example, you can download prebuilt binary.
 
 1. Go to the [Releases](https://github.com/yantonov/git-hook-runner/releases) page.
 2. Download the archive for your platform:
