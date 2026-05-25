@@ -4,8 +4,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 
 use crate::config::{Config, Job, load_config, save_config};
+use crate::logger::Logger;
 
-pub fn ensure_installed(git_dir: &Path, hook_name: &str) -> Result<()> {
+pub fn ensure_installed(logger: &dyn Logger, git_dir: &Path, hook_name: &str) -> Result<()> {
     let hooks_dir = git_dir.join("hooks");
     fs::create_dir_all(&hooks_dir).context("failed to create hooks directory")?;
 
@@ -37,7 +38,10 @@ pub fn ensure_installed(git_dir: &Path, hook_name: &str) -> Result<()> {
                 key: "existing-hook".to_string(),
                 cmd: relative_cmd,
             });
-            println!("preserved existing hook as {}", saved_path.display());
+            logger.info(&format!(
+                "preserved existing hook as {}",
+                saved_path.display()
+            ));
         }
     }
 
@@ -52,11 +56,11 @@ pub fn ensure_installed(git_dir: &Path, hook_name: &str) -> Result<()> {
         save_config(git_dir, &config)?;
     }
 
-    println!(
+    logger.info(&format!(
         "installed krok as hook '{}' at {}",
         hook_name,
         hook_path.display()
-    );
+    ));
     Ok(())
 }
 
