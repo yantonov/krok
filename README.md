@@ -15,6 +15,7 @@
 - [Configuration file](#configuration-file)
 - [Run mode](#run-mode)
 - [Error handling](#error-handling)
+- [Inspired by](#inspired-by)
 
 ---
 
@@ -151,3 +152,17 @@ Jobs run **sequentially**. If any job exits with a non-zero code, `krok` stops i
 ```
 
 The hook itself exits with the same non-zero code, which causes git to abort the operation.
+
+---
+
+## Inspired by
+
+`krok` is inspired by — and best understood in contrast with — these existing git hook managers:
+
+1. [hk](https://github.com/jdx/hk) [rust] written in rust (+ package manager is worth checking)
+2. [On git hook managers](https://salotz.info/posts/on-git-hook-managers/) — overview post on the design space
+3. [pre-commit](https://pre-commit.com/) — [python] feature-rich
+4. [autohook](https://github.com/Autohook/Autohook) — nice idea, not intuitive
+5. [lefthook](https://github.com/evilmartians/lefthook) — [go] extensive config options
+
+> **Note:** The goal of `krok` is to be the simplest possible git hook manager with a minimalistic config. Where the tools above offer rich configuration, plugin ecosystems, or DSLs, `krok` deliberately stops at *"run these commands in order when this hook fires"* — nothing more.
