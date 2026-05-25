@@ -35,8 +35,8 @@ pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String]) -> Result<()> 
     });
     save_config(&git_dir, &config)?;
 
-    logger.info(&format!("added job '{}' to hook '{}'", key, hook_name));
-    logger.info(&format!("  cmd: {}", cmd));
+    logger.debug(&format!("added job '{}' to hook '{}'", key, hook_name));
+    logger.debug(&format!("  cmd: {}", cmd));
     Ok(())
 }
 

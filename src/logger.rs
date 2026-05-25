@@ -1,6 +1,6 @@
 pub trait Logger {
+    fn debug(&self, msg: &str);
     fn info(&self, msg: &str);
-    fn notice(&self, msg: &str);
     fn error(&self, msg: &str);
 }
 
@@ -15,13 +15,13 @@ impl StdLogger {
 }
 
 impl Logger for StdLogger {
-    fn info(&self, msg: &str) {
+    fn debug(&self, msg: &str) {
         if self.verbose {
             println!("{msg}");
         }
     }
 
-    fn notice(&self, msg: &str) {
+    fn info(&self, msg: &str) {
         println!("{msg}");
     }
 

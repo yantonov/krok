@@ -16,10 +16,10 @@ pub fn show(logger: &dyn Logger) -> Result<()> {
             path.display()
         );
     }
-    logger.info(&format!("showing {}", path.display()));
+    logger.debug(&format!("showing {}", path.display()));
     let content = std::fs::read_to_string(&path)
         .with_context(|| format!("failed to read {}", path.display()))?;
-    logger.notice(content.trim_end());
+    logger.info(content.trim_end());
     Ok(())
 }
 
@@ -33,7 +33,7 @@ pub fn edit(logger: &dyn Logger) -> Result<()> {
         );
     }
     let editor = git_editor(&repo_root)?;
-    logger.info(&format!("opening editor for {}", path.display()));
+    logger.debug(&format!("opening editor for {}", path.display()));
 
     let path_str = path.to_string_lossy().replace('\\', "/");
     let cmd = format!("{} \"{}\"", editor, path_str);

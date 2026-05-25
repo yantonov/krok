@@ -21,7 +21,7 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
 
     for job in jobs {
-        logger.info(&format!("[krok] running '{}': {}", job.key, job.cmd));
+        logger.debug(&format!("[krok] running '{}': {}", job.key, job.cmd));
 
         let resolved = resolve_cmd(&job.cmd, &hooks_dir);
         let cmd = if hook_args.is_empty() {

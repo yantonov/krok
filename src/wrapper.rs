@@ -62,7 +62,7 @@ pub fn preserve_foreign_hook(
             key: "existing-hook".to_string(),
             cmd: relative_cmd,
         });
-        logger.info(&format!(
+        logger.debug(&format!(
             "preserved existing hook as {}",
             saved_path.display()
         ));

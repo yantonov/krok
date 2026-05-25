@@ -23,15 +23,15 @@ pub fn run(logger: &dyn Logger, hook_name: &str) -> Result<()> {
 
     match wrapper_status(&hook_path, hook_name) {
         WrapperStatus::Aligned => {
-            logger.notice(&format!("hook '{}' is up to date", hook_name));
+            logger.info(&format!("hook '{}' is up to date", hook_name));
         }
         WrapperStatus::Missing => {
             write_wrapper(&hook_path, hook_name)?;
-            logger.notice(&format!("wrote wrapper for '{}'", hook_name));
+            logger.info(&format!("wrote wrapper for '{}'", hook_name));
         }
         WrapperStatus::DriftedKrok => {
             write_wrapper(&hook_path, hook_name)?;
-            logger.notice(&format!(
+            logger.info(&format!(
                 "replaced outdated krok wrapper for '{}'",
                 hook_name
             ));
@@ -44,7 +44,7 @@ pub fn run(logger: &dyn Logger, hook_name: &str) -> Result<()> {
             if config != original {
                 save_config(&git_dir, &config)?;
             }
-            logger.notice(&format!(
+            logger.info(&format!(
                 "preserved foreign hook and wrote krok wrapper for '{}'",
                 hook_name
             ));

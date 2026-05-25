@@ -34,7 +34,7 @@ pub fn ensure_installed(logger: &dyn Logger, git_dir: &Path, hook_name: &str) ->
         save_config(git_dir, &config)?;
     }
 
-    logger.info(&format!(
+    logger.debug(&format!(
         "installed krok as hook '{}' at {}",
         hook_name,
         hook_path.display()
