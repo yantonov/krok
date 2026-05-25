@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 
-use crate::config::{Job, load_config, save_config};
+use crate::config::{Config, Job, load_config, save_config};
 use crate::git::find_git_root;
 
 pub fn run(hook_name: &str) -> Result<()> {
@@ -22,6 +22,13 @@ pub fn run(hook_name: &str) -> Result<()> {
 
     let hook_path = hooks_dir.join(hook_name);
     let mut config = load_config(&git_dir)?;
+
+    if is_fully_installed(&hook_path, &hooks_dir, hook_name, &config) {
+        println!("hook '{}' already installed (no changes)", hook_name);
+        return Ok(());
+    }
+
+    let original = config.clone();
     let jobs = config.hooks.entry(hook_name.to_string()).or_default();
 
     // If a non-krok hook already exists, preserve it.
@@ -54,7 +61,9 @@ pub fn run(hook_name: &str) -> Result<()> {
         .with_context(|| format!("failed to write hook script to {}", hook_path.display()))?;
     set_executable(&hook_path)?;
 
-    save_config(&git_dir, &config)?;
+    if config != original {
+        save_config(&git_dir, &config)?;
+    }
 
     println!(
         "installed krok as hook '{}' at {}",
@@ -62,6 +71,23 @@ pub fn run(hook_name: &str) -> Result<()> {
         hook_path.display()
     );
     Ok(())
+}
+
+fn is_fully_installed(
+    hook_path: &Path,
+    hooks_dir: &Path,
+    hook_name: &str,
+    config: &Config,
+) -> bool {
+    if !hook_path.exists() || !is_krok_script(hook_path) {
+        return false;
+    }
+    let Some(jobs) = config.hooks.get(hook_name) else {
+        return false;
+    };
+    jobs.iter()
+        .filter(|j| j.key == "existing-hook")
+        .all(|j| hooks_dir.join(&j.cmd).exists())
 }
 
 fn set_executable(path: &Path) -> Result<()> {
