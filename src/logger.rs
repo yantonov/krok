@@ -3,11 +3,21 @@ pub trait Logger {
     fn error(&self, msg: &str);
 }
 
-pub struct StdLogger;
+pub struct StdLogger {
+    verbose: bool,
+}
+
+impl StdLogger {
+    pub fn new(verbose: bool) -> Self {
+        Self { verbose }
+    }
+}
 
 impl Logger for StdLogger {
     fn info(&self, msg: &str) {
-        println!("{msg}");
+        if self.verbose {
+            println!("{msg}");
+        }
     }
 
     fn error(&self, msg: &str) {
