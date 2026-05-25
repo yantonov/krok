@@ -3,12 +3,15 @@ use anyhow::{Context, Result, bail};
 use crate::commands::install::ensure_installed;
 use crate::config::{Job, load_config, save_config};
 use crate::git::find_git_root;
+use crate::hooks;
 use crate::logger::Logger;
 
-pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String]) -> Result<()> {
+pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String], force: bool) -> Result<()> {
     if args.is_empty() {
         bail!("add requires at least one argument (the command to register)");
     }
+
+    hooks::ensure_valid(hook_name, force)?;
 
     let cwd = std::env::current_dir().context("failed to get current directory")?;
     let (_repo_root, git_dir) = find_git_root(&cwd)?;

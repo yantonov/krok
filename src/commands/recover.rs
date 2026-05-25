@@ -2,10 +2,13 @@ use anyhow::{Context, Result, bail};
 
 use crate::config::{load_config, save_config};
 use crate::git::find_git_root;
+use crate::hooks;
 use crate::logger::Logger;
 use crate::wrapper::{WrapperStatus, preserve_foreign_hook, wrapper_status, write_wrapper};
 
-pub fn run(logger: &dyn Logger, hook_name: &str) -> Result<()> {
+pub fn run(logger: &dyn Logger, hook_name: &str, force: bool) -> Result<()> {
+    hooks::ensure_valid(hook_name, force)?;
+
     let cwd = std::env::current_dir().context("failed to get current directory")?;
     let (_repo_root, git_dir) = find_git_root(&cwd)?;
 

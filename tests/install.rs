@@ -641,3 +641,110 @@ fn config_edit_invokes_git_editor() {
         "editor command did not run (marker file missing)"
     );
 }
+
+#[test]
+fn add_rejects_unknown_hook_name_by_default() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["add", "pre-comit", "echo hi"]) // typo: should be pre-commit
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "add should reject unknown hook name without --force"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("not a known git hook name"),
+        "expected validation error, got stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("--force"),
+        "error should mention --force escape hatch, got: {stderr}"
+    );
+
+    // Wrapper should not have been written
+    let wrapper = repo.join(".git").join("hooks").join("pre-comit");
+    assert!(
+        !wrapper.exists(),
+        "wrapper should not exist when validation fails"
+    );
+}
+
+#[test]
+fn add_accepts_unknown_hook_name_with_force() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    // -f short flag
+    run_krok(repo, &["add", "-f", "custom-experimental-hook", "echo hi"]);
+
+    let wrapper = repo
+        .join(".git")
+        .join("hooks")
+        .join("custom-experimental-hook");
+    assert!(
+        wrapper.exists(),
+        "wrapper should exist for custom hook with --force"
+    );
+    let config = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
+        .expect("read config");
+    assert!(
+        config.contains("custom-experimental-hook"),
+        "config should contain custom hook entry: {config}"
+    );
+}
+
+#[test]
+fn recover_rejects_unknown_hook_name_by_default() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["recover", "pre-comit"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "recover should reject unknown hook name without --force"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("not a known git hook name"),
+        "expected validation error, got stderr: {stderr}"
+    );
+}
+
+#[test]
+fn recover_accepts_unknown_hook_name_with_force() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    // Bootstrap: install a custom hook via add --force, so config has an entry
+    run_krok(repo, &["add", "--force", "custom-experimental-hook", "echo hi"]);
+
+    // Delete the wrapper, then recover with --force (config entry exists)
+    let wrapper = repo
+        .join(".git")
+        .join("hooks")
+        .join("custom-experimental-hook");
+    std::fs::remove_file(&wrapper).expect("remove wrapper");
+
+    run_krok(
+        repo,
+        &["recover", "--force", "custom-experimental-hook"],
+    );
+
+    assert!(
+        wrapper.exists(),
+        "wrapper should have been restored by recover --force"
+    );
+}

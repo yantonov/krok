@@ -16,6 +16,9 @@ enum Commands {
         /// Command and arguments to register
         #[arg(trailing_var_arg = true, num_args = 1..)]
         args: Vec<String>,
+        /// Skip validation that hook_name is a known git hook
+        #[arg(short, long)]
+        force: bool,
     },
     /// Run jobs registered for a hook
     Run {
@@ -29,6 +32,9 @@ enum Commands {
     Recover {
         /// Name of the git hook (e.g. pre-commit)
         hook_name: String,
+        /// Skip validation that hook_name is a known git hook
+        #[arg(short, long)]
+        force: bool,
     },
     /// Inspect or modify the krok config file
     Config {
@@ -49,6 +55,7 @@ pub enum Invocation {
     Add {
         hook_name: String,
         args: Vec<String>,
+        force: bool,
     },
     Run {
         hook_name: String,
@@ -56,6 +63,7 @@ pub enum Invocation {
     },
     Recover {
         hook_name: String,
+        force: bool,
     },
     ConfigShow,
     ConfigEdit,
@@ -63,9 +71,11 @@ pub enum Invocation {
 
 pub fn parse() -> Invocation {
     match Cli::parse().command {
-        Commands::Add { hook_name, args } => Invocation::Add { hook_name, args },
+        Commands::Add { hook_name, args, force } => {
+            Invocation::Add { hook_name, args, force }
+        }
         Commands::Run { hook_name, args } => Invocation::Run { hook_name, hook_args: args },
-        Commands::Recover { hook_name } => Invocation::Recover { hook_name },
+        Commands::Recover { hook_name, force } => Invocation::Recover { hook_name, force },
         Commands::Config { action } => match action {
             ConfigAction::Show => Invocation::ConfigShow,
             ConfigAction::Edit => Invocation::ConfigEdit,

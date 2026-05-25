@@ -85,11 +85,12 @@ krok --version
 ### add
 
 ```sh
-krok add <hook-name> <command> [args...]
+krok add [--force|-f] <hook-name> <command> [args...]
 ```
 
 Appends a new job to the named hook's job list. On the first `add` for a hook, krok also installs the wrapper script at `.git/hooks/<hook-name>`; subsequent calls only update `.git/krok-config.yml`.
 
+- `<hook-name>` is validated against the list of built-in git hook names from [`githooks(5)`](https://git-scm.com/docs/githooks). Pass `--force` (`-f`) to skip the check — useful when working with a git fork or with a hook newer than the krok release you have installed.
 - The job key is derived from the command (ASCII alphanumeric characters, spaces replaced with `-`).
 - Returns an error if a job with the same key already exists for that hook.
 - If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/hooks/<hook-name>-hooks/existing-<hook-name>` and registered as the first job so it continues to run.
@@ -100,6 +101,7 @@ Appends a new job to the named hook's job list. On the first `add` for a hook, k
 krok add pre-commit cargo test
 krok add pre-commit cargo clippy -- -D warnings
 krok add commit-msg ./scripts/check-message.sh
+krok add --force custom-experimental-hook ./scripts/custom.sh
 ```
 
 ### run
@@ -113,10 +115,10 @@ Invoked by the wrapper script that git executes — you normally do not call thi
 ### recover
 
 ```sh
-krok recover <hook-name>
+krok recover [--force|-f] <hook-name>
 ```
 
-Restores the wrapper script at `.git/hooks/<hook-name>` when it has drifted from what `krok` expects. Use this after another tool overwrites the hook, after you upgrade `krok` and want to bring the wrapper in sync, or after the file has been deleted.
+Restores the wrapper script at `.git/hooks/<hook-name>` when it has drifted from what `krok` expects. `<hook-name>` is validated the same way as in [`add`](#add); use `--force` (`-f`) to skip the check. Use this after another tool overwrites the hook, after you upgrade `krok` and want to bring the wrapper in sync, or after the file has been deleted.
 
 The hook must already have a config entry (i.e. you must have previously run `krok add <hook-name> ...`); otherwise `recover` errors out. Behavior based on the current state of the wrapper file:
 
