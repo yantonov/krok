@@ -24,6 +24,8 @@ fn main() -> Result<()> {
         cli::Invocation::Recover { hook_name } => {
             commands::recover::run(&logger, &hook_name)?
         }
+        cli::Invocation::ConfigShow => commands::config::show(&logger)?,
+        cli::Invocation::ConfigEdit => commands::config::edit(&logger)?,
     }
     Ok(())
 }

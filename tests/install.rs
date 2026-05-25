@@ -535,3 +535,109 @@ fn recover_without_config_entry_fails() {
         "expected 'nothing to recover' error, got stderr: {stderr}"
     );
 }
+
+#[test]
+fn config_show_outputs_config_file_content() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+
+    let output = Command::new(krok_bin())
+        .args(["config", "show"])
+        .current_dir(repo)
+        .env_remove("KROK_DEBUG")
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "config show failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let file_content =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
+    assert_eq!(
+        stdout.trim_end(),
+        file_content.trim_end(),
+        "config show output did not match file content"
+    );
+}
+
+#[test]
+fn config_show_without_config_fails() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["config", "show"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "config show should fail when no config exists"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("no config"),
+        "expected 'no config' error, got stderr: {stderr}"
+    );
+}
+
+#[test]
+fn config_must_run_from_repo_root() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+
+    let subdir = repo.join("sub");
+    std::fs::create_dir(&subdir).expect("create subdir");
+
+    let output = Command::new(krok_bin())
+        .args(["config", "show"])
+        .current_dir(&subdir)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "config show should fail when not at repo root"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("repository root"),
+        "expected 'repository root' error, got stderr: {stderr}"
+    );
+}
+
+#[test]
+fn config_edit_invokes_git_editor() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+
+    let marker = repo.join("editor-ran.txt");
+    let marker_str = fwd_slash(&marker);
+    let editor = format!("touch {marker_str}");
+
+    let output = Command::new(krok_bin())
+        .args(["config", "edit"])
+        .current_dir(repo)
+        .env("GIT_EDITOR", &editor)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "config edit failed: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        marker.exists(),
+        "editor command did not run (marker file missing)"
+    );
+}

@@ -30,6 +30,19 @@ enum Commands {
         /// Name of the git hook (e.g. pre-commit)
         hook_name: String,
     },
+    /// Inspect or modify the krok config file
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Print the config file to stdout
+    Show,
+    /// Open the config file in the git editor
+    Edit,
 }
 
 pub enum Invocation {
@@ -44,6 +57,8 @@ pub enum Invocation {
     Recover {
         hook_name: String,
     },
+    ConfigShow,
+    ConfigEdit,
 }
 
 pub fn parse() -> Invocation {
@@ -51,5 +66,9 @@ pub fn parse() -> Invocation {
         Commands::Add { hook_name, args } => Invocation::Add { hook_name, args },
         Commands::Run { hook_name, args } => Invocation::Run { hook_name, hook_args: args },
         Commands::Recover { hook_name } => Invocation::Recover { hook_name },
+        Commands::Config { action } => match action {
+            ConfigAction::Show => Invocation::ConfigShow,
+            ConfigAction::Edit => Invocation::ConfigEdit,
+        },
     }
 }

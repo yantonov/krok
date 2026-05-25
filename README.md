@@ -13,6 +13,8 @@
   - [add](#add)
   - [run](#run)
   - [recover](#recover)
+  - [config show](#config-show)
+  - [config edit](#config-edit)
 - [Configuration file](#configuration-file)
 - [Run mode](#run-mode)
 - [Error handling](#error-handling)
@@ -124,6 +126,22 @@ The hook must already have a config entry (i.e. you must have previously run `kr
 | File missing | write the wrapper | `wrote wrapper for '<name>'` |
 | Older / modified krok wrapper | overwrite | `replaced outdated krok wrapper for '<name>'` |
 | A foreign (non-krok) script | preserve it to `<hook>-hooks/existing-<hook>` and register as a job, then write the wrapper | `preserved foreign hook and wrote krok wrapper for '<name>'` |
+
+### config show
+
+```sh
+krok config show
+```
+
+Prints the contents of `.git/krok-config.yml` to stdout. Must be run from the repository root. Errors out if no config file exists.
+
+### config edit
+
+```sh
+krok config edit
+```
+
+Opens `.git/krok-config.yml` in the editor reported by `git var GIT_EDITOR` (which respects `$GIT_EDITOR`, `core.editor`, `$VISUAL`, `$EDITOR`, in that order). Must be run from the repository root. Errors out if no config file exists — use `krok add` first.
 
 ---
 
