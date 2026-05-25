@@ -4,6 +4,7 @@ mod config;
 mod env;
 mod git;
 mod logger;
+mod wrapper;
 
 use anyhow::Result;
 
