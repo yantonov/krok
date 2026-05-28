@@ -614,6 +614,81 @@ fn config_must_run_from_repo_root() {
 }
 
 #[test]
+fn config_path_prints_config_path() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+
+    let output = Command::new(krok_bin())
+        .args(["config", "path"])
+        .current_dir(repo)
+        .env_remove("KROK_DEBUG")
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        output.status.success(),
+        "config path failed: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let expected = repo.join(".git").join("krok-config.yml");
+    assert_eq!(
+        stdout.trim_end(),
+        expected.display().to_string(),
+        "config path output did not match expected path"
+    );
+}
+
+#[test]
+fn config_path_without_config_fails() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let output = Command::new(krok_bin())
+        .args(["config", "path"])
+        .current_dir(repo)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "config path should fail when no config exists"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("no config"),
+        "expected 'no config' error, got stderr: {stderr}"
+    );
+}
+
+#[test]
+fn config_path_must_run_from_repo_root() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let subdir = repo.join("sub");
+    std::fs::create_dir(&subdir).expect("create subdir");
+
+    let output = Command::new(krok_bin())
+        .args(["config", "path"])
+        .current_dir(&subdir)
+        .output()
+        .expect("failed to execute krok");
+    assert!(
+        !output.status.success(),
+        "config path should fail when not at repo root"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("repository root"),
+        "expected 'repository root' error, got stderr: {stderr}"
+    );
+}
+
+#[test]
 fn config_edit_invokes_git_editor() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();

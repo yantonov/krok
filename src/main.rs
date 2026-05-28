@@ -27,6 +27,7 @@ fn main() -> Result<()> {
         }
         cli::Invocation::ConfigShow => commands::config::show(&logger)?,
         cli::Invocation::ConfigEdit => commands::config::edit(&logger)?,
+        cli::Invocation::ConfigPath => commands::config::path(&logger)?,
     }
     Ok(())
 }

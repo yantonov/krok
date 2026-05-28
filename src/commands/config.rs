@@ -23,6 +23,19 @@ pub fn show(logger: &dyn Logger) -> Result<()> {
     Ok(())
 }
 
+pub fn path(logger: &dyn Logger) -> Result<()> {
+    let (_repo_root, git_dir) = ensure_repo_root()?;
+    let path = config_path(&git_dir);
+    if !path.exists() {
+        bail!(
+            "no config at {}; use 'krok add' to create one",
+            path.display()
+        );
+    }
+    logger.info(&path.display().to_string());
+    Ok(())
+}
+
 pub fn edit(logger: &dyn Logger) -> Result<()> {
     let (repo_root, git_dir) = ensure_repo_root()?;
     let path = config_path(&git_dir);

@@ -15,6 +15,7 @@
   - [recover](#recover)
   - [config show](#config-show)
   - [config edit](#config-edit)
+  - [config path](#config-path)
 - [Configuration file](#configuration-file)
 - [Run mode](#run-mode)
 - [Error handling](#error-handling)
@@ -146,6 +147,14 @@ krok config edit
 ```
 
 Opens `.git/krok-config.yml` in the editor reported by `git var GIT_EDITOR` (which respects `$GIT_EDITOR`, `core.editor`, `$VISUAL`, `$EDITOR`, in that order). Must be run from the repository root. Errors out if no config file exists — use `krok add` first.
+
+### config path
+
+```sh
+krok config path
+```
+
+Prints the absolute path to `.git/krok-config.yml`. Must be run from the repository root. Errors out if no config file exists — use `krok add` first.
 
 ---
 

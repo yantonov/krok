@@ -49,6 +49,8 @@ enum ConfigAction {
     Show,
     /// Open the config file in the git editor
     Edit,
+    /// Print the path to the config file
+    Path,
 }
 
 pub enum Invocation {
@@ -67,6 +69,7 @@ pub enum Invocation {
     },
     ConfigShow,
     ConfigEdit,
+    ConfigPath,
 }
 
 pub fn parse() -> Invocation {
@@ -79,6 +82,7 @@ pub fn parse() -> Invocation {
         Commands::Config { action } => match action {
             ConfigAction::Show => Invocation::ConfigShow,
             ConfigAction::Edit => Invocation::ConfigEdit,
+            ConfigAction::Path => Invocation::ConfigPath,
         },
     }
 }
