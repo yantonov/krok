@@ -74,10 +74,19 @@ pub enum Invocation {
 
 pub fn parse() -> Invocation {
     match Cli::parse().command {
-        Commands::Add { hook_name, args, force } => {
-            Invocation::Add { hook_name, args, force }
-        }
-        Commands::Run { hook_name, args } => Invocation::Run { hook_name, hook_args: args },
+        Commands::Add {
+            hook_name,
+            args,
+            force,
+        } => Invocation::Add {
+            hook_name,
+            args,
+            force,
+        },
+        Commands::Run { hook_name, args } => Invocation::Run {
+            hook_name,
+            hook_args: args,
+        },
         Commands::Recover { hook_name, force } => Invocation::Recover { hook_name, force },
         Commands::Config { action } => match action {
             ConfigAction::Show => Invocation::ConfigShow,

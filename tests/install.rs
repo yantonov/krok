@@ -94,10 +94,13 @@ fn add_on_uninstalled_hook_installs_wrapper_then_adds_job() {
         .and_then(|j| j.as_sequence())
         .expect("config must have hooks.pre-commit as a sequence");
 
-    let has_echo_job = jobs.iter().any(|job| {
-        job.get("cmd").and_then(|c| c.as_str()) == Some("echo hello")
-    });
-    assert!(has_echo_job, "expected 'echo hello' job in config: {content}");
+    let has_echo_job = jobs
+        .iter()
+        .any(|job| job.get("cmd").and_then(|c| c.as_str()) == Some("echo hello"));
+    assert!(
+        has_echo_job,
+        "expected 'echo hello' job in config: {content}"
+    );
 }
 
 fn fwd_slash(p: &Path) -> String {
@@ -113,9 +116,18 @@ fn run_executes_jobs_in_registered_order() {
     let log = repo.join("order.log");
     let log_str = fwd_slash(&log);
 
-    run_krok(repo, &["add", "pre-commit", &format!("echo first >> {log_str}")]);
-    run_krok(repo, &["add", "pre-commit", &format!("echo second >> {log_str}")]);
-    run_krok(repo, &["add", "pre-commit", &format!("echo third >> {log_str}")]);
+    run_krok(
+        repo,
+        &["add", "pre-commit", &format!("echo first >> {log_str}")],
+    );
+    run_krok(
+        repo,
+        &["add", "pre-commit", &format!("echo second >> {log_str}")],
+    );
+    run_krok(
+        repo,
+        &["add", "pre-commit", &format!("echo third >> {log_str}")],
+    );
 
     run_krok(repo, &["run", "pre-commit"]);
 
@@ -139,7 +151,10 @@ fn run_fails_when_any_job_fails() {
 
     run_krok(repo, &["add", "pre-commit", "true"]);
     run_krok(repo, &["add", "pre-commit", "false"]);
-    run_krok(repo, &["add", "pre-commit", &format!("echo done > {marker_str}")]);
+    run_krok(
+        repo,
+        &["add", "pre-commit", &format!("echo done > {marker_str}")],
+    );
 
     let output = Command::new(krok_bin())
         .args(["run", "pre-commit"])
@@ -169,8 +184,8 @@ fn add_appends_multiple_jobs_to_same_hook() {
     run_krok(repo, &["add", "pre-commit", "echo two"]);
     run_krok(repo, &["add", "pre-commit", "echo three"]);
 
-    let content = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
-        .expect("read config");
+    let content =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
     let value: serde_yaml::Value = serde_yaml::from_str(&content).expect("parse yaml");
     let jobs = value
         .get("hooks")
@@ -313,8 +328,8 @@ fn add_preserves_existing_non_krok_hook() {
         "preserved hook content does not match original"
     );
 
-    let config = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
-        .expect("read config");
+    let config =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
     let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
     let jobs = value
         .get("hooks")
@@ -352,7 +367,10 @@ fn run_forwards_hook_args_to_jobs() {
 
     // Stored cmd: "echo > /path/captured.txt". At run time, hook_args are appended,
     // so sh sees `echo > /path/captured.txt passed-arg` and writes "passed-arg" to the file.
-    run_krok(repo, &["add", "pre-commit", &format!("echo > {captured_str}")]);
+    run_krok(
+        repo,
+        &["add", "pre-commit", &format!("echo > {captured_str}")],
+    );
 
     run_krok(repo, &["run", "pre-commit", "passed-arg"]);
 
@@ -436,7 +454,8 @@ fn recover_replaces_drifted_krok_wrapper() {
     let wrapper = repo.join(".git").join("hooks").join("pre-commit");
 
     // Drift: still contains the krok marker, but the rest of the content differs.
-    let drifted = "#!/usr/bin/env bash\n# git hook manager wrapper (old)\nexec krok run pre-commit \"$@\"\n";
+    let drifted =
+        "#!/usr/bin/env bash\n# git hook manager wrapper (old)\nexec krok run pre-commit \"$@\"\n";
     std::fs::write(&wrapper, drifted).expect("write drifted wrapper");
 
     let output = Command::new(krok_bin())
@@ -498,8 +517,8 @@ fn recover_preserves_foreign_hook() {
         "wrapper not restored to krok form: {after_wrapper}"
     );
 
-    let config = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
-        .expect("read config");
+    let config =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
     let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
     let jobs = value
         .get("hooks")
@@ -507,9 +526,8 @@ fn recover_preserves_foreign_hook() {
         .and_then(|j| j.as_sequence())
         .expect("hooks.pre-commit must be a sequence");
     assert!(
-        jobs.iter().any(|j| {
-            j.get("key").and_then(|k| k.as_str()) == Some("existing-hook")
-        }),
+        jobs.iter()
+            .any(|j| { j.get("key").and_then(|k| k.as_str()) == Some("existing-hook") }),
         "existing-hook job not registered: {config}"
     );
 }
@@ -767,8 +785,8 @@ fn add_accepts_unknown_hook_name_with_force() {
         wrapper.exists(),
         "wrapper should exist for custom hook with --force"
     );
-    let config = std::fs::read_to_string(repo.join(".git").join("krok-config.yml"))
-        .expect("read config");
+    let config =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
     assert!(
         config.contains("custom-experimental-hook"),
         "config should contain custom hook entry: {config}"
@@ -804,7 +822,10 @@ fn recover_accepts_unknown_hook_name_with_force() {
     git_init(repo);
 
     // Bootstrap: install a custom hook via add --force, so config has an entry
-    run_krok(repo, &["add", "--force", "custom-experimental-hook", "echo hi"]);
+    run_krok(
+        repo,
+        &["add", "--force", "custom-experimental-hook", "echo hi"],
+    );
 
     // Delete the wrapper, then recover with --force (config entry exists)
     let wrapper = repo
@@ -813,10 +834,7 @@ fn recover_accepts_unknown_hook_name_with_force() {
         .join("custom-experimental-hook");
     std::fs::remove_file(&wrapper).expect("remove wrapper");
 
-    run_krok(
-        repo,
-        &["recover", "--force", "custom-experimental-hook"],
-    );
+    run_krok(repo, &["recover", "--force", "custom-experimental-hook"]);
 
     assert!(
         wrapper.exists(),

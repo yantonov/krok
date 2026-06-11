@@ -3,11 +3,7 @@ use anyhow::{Result, bail};
 // Hook names are taken from githooks(5). Groups are kept explicit so the
 // taxonomy of the documentation stays visible in the code.
 
-const APPLYPATCH_HOOKS: &[&str] = &[
-    "applypatch-msg",
-    "pre-applypatch",
-    "post-applypatch",
-];
+const APPLYPATCH_HOOKS: &[&str] = &["applypatch-msg", "pre-applypatch", "post-applypatch"];
 
 const COMMIT_WORKFLOW_HOOKS: &[&str] = &[
     "pre-commit",
@@ -45,9 +41,7 @@ const SERVER_SIDE_HOOKS: &[&str] = &[
     "reference-transaction",
 ];
 
-const NEWER_HOOKS: &[&str] = &[
-    "pre-merge-commit",
-];
+const NEWER_HOOKS: &[&str] = &["pre-merge-commit"];
 
 const ALL_GROUPS: &[&[&str]] = &[
     APPLYPATCH_HOOKS,

@@ -48,10 +48,7 @@ fn is_fully_installed(
     hook_name: &str,
     config: &Config,
 ) -> bool {
-    if !matches!(
-        wrapper_status(hook_path, hook_name),
-        WrapperStatus::Aligned
-    ) {
+    if !matches!(wrapper_status(hook_path, hook_name), WrapperStatus::Aligned) {
         return false;
     }
     let Some(jobs) = config.hooks.get(hook_name) else {
