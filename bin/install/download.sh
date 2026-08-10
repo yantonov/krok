@@ -22,7 +22,7 @@ case "$(uname -s)" in
     ;;
 esac
 
-REPO="yantonov/git-hook-runner"
+REPO="yantonov/krok"
 # Get latest tag
 LATEST_TAG=$(
   curl -fsSL "https://api.github.com/repos/${REPO}/tags" \
