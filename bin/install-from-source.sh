@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-INSTALL_DIR="${HOME}/bin"
+INSTALL_DIR="${HOME}/.local/bin"
 
 cd "$PROJECT_ROOT"
 
@@ -31,5 +31,5 @@ if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
   echo ""
   echo "Note: ${INSTALL_DIR} is not in your PATH."
   echo "Add the following line to your shell profile:"
-  echo "  export PATH=\"\${HOME}/bin:\$PATH\""
+  echo "  export PATH=\"\${INSTALL_DIR}:\$PATH\""
 fi
