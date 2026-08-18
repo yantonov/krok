@@ -183,14 +183,7 @@ Two variables are exported to every job:
 | Variable         | Value                         |
 |------------------|-------------------------------|
 | `KROK_REPO_ROOT` | Top level of the working tree |
-| `KROK_HOOKS_DIR` | `.git/hooks`                  |
-
-A preserved foreign hook (see [`add`](#add)) uses one to name itself:
-
-```yaml
-- key: existing-hook
-  cmd: "$KROK_HOOKS_DIR/pre-commit-hooks/existing-pre-commit"
-```
+| `KROK_HOOKS_DIR` | Where hook scripts live       |
 
 ---
 

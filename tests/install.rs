@@ -22,6 +22,38 @@ fn run_krok(cwd: &Path, args: &[&str]) {
     );
 }
 
+fn git(cwd: &Path, args: &[&str]) {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .expect("failed to execute git");
+    assert!(
+        output.status.success(),
+        "git {:?} failed: {}",
+        args,
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn git_init_with_a_commit(cwd: &Path) {
+    git_init(cwd);
+    git(
+        cwd,
+        &[
+            "-c",
+            "user.email=krok@example.invalid",
+            "-c",
+            "user.name=krok",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "init",
+        ],
+    );
+}
+
 fn git_init(cwd: &Path) {
     let status = Command::new("git")
         .arg("init")
@@ -581,6 +613,104 @@ fn a_hook_argument_is_not_read_as_shell_syntax() {
     assert!(
         !repo.join("pwned.txt").exists(),
         "a hook argument was read as shell syntax"
+    );
+}
+
+#[test]
+fn add_from_a_linked_worktree_reaches_the_shared_git_directory() {
+    let tmp = TempDir::new().expect("tempdir");
+    let main = tmp.path().join("main");
+    std::fs::create_dir_all(&main).expect("create main checkout");
+    git_init_with_a_commit(&main);
+
+    let worktree = tmp.path().join("wt");
+    git(
+        &main,
+        &["worktree", "add", "-q", &worktree.to_string_lossy()],
+    );
+
+    run_krok(
+        &worktree,
+        &["add", "pre-commit", "echo here > from-job.txt"],
+    );
+
+    // Worktrees share one hooks directory and one config, both belonging to the
+    // git directory of the main checkout.
+    assert!(
+        main.join(".git").join("hooks").join("pre-commit").exists(),
+        "the wrapper was not written to the shared hooks directory"
+    );
+    assert!(
+        main.join(".git").join("krok-config.yml").exists(),
+        "the config was not written to the shared git directory"
+    );
+
+    run_krok(&worktree, &["run", "pre-commit"]);
+
+    assert!(
+        worktree.join("from-job.txt").exists(),
+        "the job did not start at the top level of the worktree"
+    );
+}
+
+#[test]
+fn add_inside_a_submodule_reaches_the_git_directory_of_the_module() {
+    let tmp = TempDir::new().expect("tempdir");
+
+    let library = tmp.path().join("library");
+    std::fs::create_dir_all(&library).expect("create library");
+    git_init_with_a_commit(&library);
+
+    let superproject = tmp.path().join("superproject");
+    std::fs::create_dir_all(&superproject).expect("create superproject");
+    git_init_with_a_commit(&superproject);
+    git(
+        &superproject,
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            "-q",
+            &library.to_string_lossy(),
+            "vendor/library",
+        ],
+    );
+
+    let submodule = superproject.join("vendor").join("library");
+    run_krok(&submodule, &["add", "pre-commit", "echo hi"]);
+
+    let module_git_dir = superproject
+        .join(".git")
+        .join("modules")
+        .join("vendor")
+        .join("library");
+    assert!(
+        module_git_dir.join("hooks").join("pre-commit").exists(),
+        "the wrapper was not written to the git directory of the submodule"
+    );
+    assert!(
+        module_git_dir.join("krok-config.yml").exists(),
+        "the config was not written to the git directory of the submodule"
+    );
+}
+
+#[test]
+fn add_honours_core_hooks_path() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+    git(repo, &["config", "core.hooksPath", "my-hooks"]);
+
+    run_krok(repo, &["add", "pre-commit", "echo hi"]);
+
+    assert!(
+        repo.join("my-hooks").join("pre-commit").exists(),
+        "the wrapper ignored core.hooksPath"
+    );
+    assert!(
+        !repo.join(".git").join("hooks").join("pre-commit").exists(),
+        "the wrapper was written to the default hooks directory as well"
     );
 }
 

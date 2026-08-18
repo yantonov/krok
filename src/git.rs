@@ -1,18 +1,78 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 
-/// Walk up from `start` until a `.git` directory is found.
-/// Returns `(repo_root, git_dir)`.
-pub fn find_git_root(start: &Path) -> Result<(PathBuf, PathBuf)> {
-    let mut current = start.to_path_buf();
-    loop {
-        let git_dir = current.join(".git");
-        if git_dir.is_dir() {
-            return Ok((current, git_dir));
-        }
-        if !current.pop() {
-            bail!("not inside a git repository (no .git directory found)");
-        }
+pub struct Repository {
+    /// Top level of the working tree.
+    pub root: PathBuf,
+    /// The git directory shared by every worktree. The config belongs here
+    /// rather than in the one of the worktree it was written from, because the
+    /// hooks it drives are shared too.
+    pub git_dir: PathBuf,
+    /// Honours `core.hooksPath`.
+    pub hooks_dir: PathBuf,
+    /// Whether `start` was the top level itself.
+    pub at_root: bool,
+}
+
+/// Ask git where things are, rather than looking for a `.git` directory.
+///
+/// Only the plainest of checkouts has one. A linked worktree and a submodule
+/// have a `.git` file naming a directory elsewhere, that directory is not the
+/// one hooks live in, and `core.hooksPath` can move them somewhere else again.
+pub fn discover(start: &Path) -> Result<Repository> {
+    let output = Command::new("git")
+        .args([
+            "rev-parse",
+            "--show-toplevel",
+            "--git-common-dir",
+            "--git-path",
+            "hooks",
+            "--show-prefix",
+        ])
+        .current_dir(start)
+        .output()
+        .context("failed to run `git rev-parse`")?;
+
+    if !output.status.success() {
+        let complaint = String::from_utf8_lossy(&output.stderr);
+        bail!(
+            "not inside a git repository with a working tree: {}",
+            complaint.trim()
+        );
+    }
+
+    let text = String::from_utf8(output.stdout).context("`git rev-parse` returned non-utf8")?;
+    let mut answers = text.lines();
+    let mut next = |what: &str| -> Result<String> {
+        answers
+            .next()
+            .map(str::to_string)
+            .with_context(|| format!("`git rev-parse` did not report the {what}"))
+    };
+
+    let root = next("repository root")?;
+    let git_dir = next("git directory")?;
+    let hooks_dir = next("hooks directory")?;
+    // Empty at the top level, and the last line, so git leaves nothing to read.
+    let prefix = answers.next().unwrap_or_default();
+
+    Ok(Repository {
+        root: absolute(start, &root),
+        git_dir: absolute(start, &git_dir),
+        hooks_dir: absolute(start, &hooks_dir),
+        at_root: prefix.is_empty(),
+    })
+}
+
+/// Git answers with a path relative to the directory it was asked in unless it
+/// has reason to do otherwise.
+fn absolute(start: &Path, answer: &str) -> PathBuf {
+    let path = Path::new(answer);
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        start.join(path)
     }
 }

@@ -5,17 +5,16 @@ use anyhow::{Context, Result};
 
 use crate::config::{Job, load_config};
 use crate::env::{HOOKS_DIR_VAR, REPO_ROOT_VAR};
-use crate::git::find_git_root;
+use crate::git;
 use crate::logger::Logger;
 use crate::shell::{shell_command, shell_path};
 use crate::wrapper::EXISTING_HOOK_KEY;
 
 pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result<()> {
     let cwd = std::env::current_dir().context("failed to get current directory")?;
-    let (repo_root, git_dir) = find_git_root(&cwd)?;
-    let hooks_dir = git_dir.join("hooks");
+    let repo = git::discover(&cwd)?;
 
-    let config = load_config(&git_dir)?;
+    let config = load_config(&repo.git_dir)?;
     let jobs = match config.hooks.get(hook_name) {
         Some(j) if !j.is_empty() => j,
         Some(_) | None => return Ok(()),
@@ -29,15 +28,15 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
     for job in jobs {
         logger.debug(&format!("[krok] running '{}': {}", job.key, job.cmd));
 
-        let cmd = legacy_preserved_cmd(job, &hooks_dir).unwrap_or_else(|| job.cmd.clone());
+        let cmd = legacy_preserved_cmd(job, &repo.hooks_dir).unwrap_or_else(|| job.cmd.clone());
 
         let script = format!("{cmd} \"$@\"");
 
         let status = shell_command(shell, &script, hook_name, hook_args)
             // Where git itself fires hooks from.
-            .current_dir(&repo_root)
-            .env(REPO_ROOT_VAR, shell_path(&repo_root))
-            .env(HOOKS_DIR_VAR, shell_path(&hooks_dir))
+            .current_dir(&repo.root)
+            .env(REPO_ROOT_VAR, shell_path(&repo.root))
+            .env(HOOKS_DIR_VAR, shell_path(&repo.hooks_dir))
             .status()
             .with_context(|| format!("failed to start shell for job '{}'", job.key))?;
 

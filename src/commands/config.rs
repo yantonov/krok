@@ -1,16 +1,16 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 
 use crate::config::config_path;
-use crate::git::find_git_root;
+use crate::git::{self, Repository};
 use crate::logger::Logger;
 use crate::shell::shell_path;
 
 pub fn show(logger: &dyn Logger) -> Result<()> {
-    let (_repo_root, git_dir) = ensure_repo_root()?;
-    let path = config_path(&git_dir);
+    let repo = ensure_repo_root()?;
+    let path = config_path(&repo.git_dir);
     if !path.exists() {
         bail!(
             "no config at {}; use 'krok add' to create one",
@@ -25,8 +25,8 @@ pub fn show(logger: &dyn Logger) -> Result<()> {
 }
 
 pub fn path(logger: &dyn Logger) -> Result<()> {
-    let (_repo_root, git_dir) = ensure_repo_root()?;
-    let path = config_path(&git_dir);
+    let repo = ensure_repo_root()?;
+    let path = config_path(&repo.git_dir);
     if !path.exists() {
         bail!(
             "no config at {}; use 'krok add' to create one",
@@ -38,15 +38,15 @@ pub fn path(logger: &dyn Logger) -> Result<()> {
 }
 
 pub fn edit(logger: &dyn Logger) -> Result<()> {
-    let (repo_root, git_dir) = ensure_repo_root()?;
-    let path = config_path(&git_dir);
+    let repo = ensure_repo_root()?;
+    let path = config_path(&repo.git_dir);
     if !path.exists() {
         bail!(
             "no config at {}; use 'krok add' to create one",
             path.display()
         );
     }
-    let editor = git_editor(&repo_root)?;
+    let editor = git_editor(&repo.root)?;
     logger.debug(&format!("opening editor for {}", path.display()));
 
     let path_str = shell_path(&path);
@@ -54,7 +54,7 @@ pub fn edit(logger: &dyn Logger) -> Result<()> {
     let status = Command::new("sh")
         .arg("-c")
         .arg(&cmd)
-        .current_dir(&repo_root)
+        .current_dir(&repo.root)
         .status()
         .context("failed to spawn editor via sh")?;
     if !status.success() {
@@ -63,16 +63,16 @@ pub fn edit(logger: &dyn Logger) -> Result<()> {
     Ok(())
 }
 
-fn ensure_repo_root() -> Result<(PathBuf, PathBuf)> {
+fn ensure_repo_root() -> Result<Repository> {
     let cwd = std::env::current_dir().context("failed to get current directory")?;
-    let (repo_root, git_dir) = find_git_root(&cwd)?;
-    if cwd != repo_root {
+    let repo = git::discover(&cwd)?;
+    if !repo.at_root {
         bail!(
             "config must be run from the repository root ({})",
-            repo_root.display()
+            repo.root.display()
         );
     }
-    Ok((repo_root, git_dir))
+    Ok(repo)
 }
 
 fn git_editor(repo_root: &Path) -> Result<String> {

@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 
 use crate::commands::install::ensure_installed;
 use crate::config::{Job, load_config, save_config};
-use crate::git::find_git_root;
+use crate::git;
 use crate::hooks;
 use crate::logger::Logger;
 
@@ -14,11 +14,11 @@ pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String], force: bool) -
     hooks::ensure_valid(hook_name, force)?;
 
     let cwd = std::env::current_dir().context("failed to get current directory")?;
-    let (_repo_root, git_dir) = find_git_root(&cwd)?;
+    let repo = git::discover(&cwd)?;
 
-    ensure_installed(logger, &git_dir, hook_name)?;
+    ensure_installed(logger, &repo, hook_name)?;
 
-    let mut config = load_config(&git_dir)?;
+    let mut config = load_config(&repo.git_dir)?;
     let jobs = config.hooks.entry(hook_name.to_string()).or_default();
 
     let cmd = args.join(" ");
@@ -36,7 +36,7 @@ pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String], force: bool) -
         key: key.clone(),
         cmd: cmd.clone(),
     });
-    save_config(&git_dir, &config)?;
+    save_config(&repo.git_dir, &config)?;
 
     logger.debug(&format!("added job '{}' to hook '{}'", key, hook_name));
     logger.debug(&format!("  cmd: {}", cmd));
