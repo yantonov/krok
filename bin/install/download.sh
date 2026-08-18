@@ -23,11 +23,26 @@ case "$(uname -s)" in
 esac
 
 REPO="yantonov/krok"
-# Get latest tag
-LATEST_TAG=$(
-  curl -fsSL "https://api.github.com/repos/${REPO}/tags" \
-  | jq -r '.[0].name'
-)
+
+# The version comes from the latest published release rather than from the tag
+# list. A tag exists the moment it is pushed, while the release built from it
+# stays a draft until someone publishes it, so the newest tag readily names
+# assets that cannot be downloaded yet. Following the redirect of the 'latest
+# release' page also keeps this clear of a json parser and of the
+# unauthenticated api rate limit.
+LATEST_TAG="$(
+  curl -fsSLo /dev/null -w '%{url_effective}' "https://github.com/${REPO}/releases/latest" \
+  | sed 's#.*/tag/##'
+)"
+
+# With nothing published, the redirect ends at the releases page instead of at a
+# tag, and what sed leaves behind is a url rather than a version.
+case "${LATEST_TAG}" in
+  ''|*/*)
+    echo "Cannot detect the latest published release of ${REPO}"
+    exit 1
+    ;;
+esac
 
 APP_NAME="krok"
 EXECUTABLE_FILENAME="${APP_NAME}"
