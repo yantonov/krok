@@ -252,6 +252,50 @@ fn add_appends_multiple_jobs_to_same_hook() {
 }
 
 #[test]
+fn two_commands_that_derive_one_key_both_register() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(
+        repo,
+        &[
+            "add",
+            "pre-commit",
+            "cargo",
+            "clippy",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    );
+    run_krok(
+        repo,
+        &["add", "pre-commit", "cargo", "clippy", "-D", "warnings"],
+    );
+
+    let config =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
+    let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
+    let jobs = value
+        .get("hooks")
+        .and_then(|h| h.get("pre-commit"))
+        .and_then(|j| j.as_sequence())
+        .expect("hooks.pre-commit must be a sequence");
+
+    assert_eq!(
+        jobs.len(),
+        2,
+        "both commands should be registered: {config}"
+    );
+    let keys: Vec<&str> = jobs
+        .iter()
+        .filter_map(|job| job.get("key").and_then(|k| k.as_str()))
+        .collect();
+    assert_ne!(keys[0], keys[1], "the two jobs share a key: {config}");
+}
+
+#[test]
 fn add_rejects_duplicate_key() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();

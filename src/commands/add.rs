@@ -22,15 +22,17 @@ pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String], force: bool) -
     let jobs = config.hooks.entry(hook_name.to_string()).or_default();
 
     let cmd = args.join(" ");
-    let key = derive_key(&cmd);
 
-    if jobs.iter().any(|j| j.key == key) {
+    if let Some(existing) = jobs.iter().find(|j| j.cmd == cmd) {
         bail!(
-            "a job with key '{}' is already registered for hook '{}'",
-            key,
-            hook_name
+            "'{}' is already registered for hook '{}', as '{}'",
+            cmd,
+            hook_name,
+            existing.key
         );
     }
+
+    let key = unique_key(&derive_key(&cmd), jobs);
 
     jobs.push(Job {
         key: key.clone(),
@@ -41,6 +43,25 @@ pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String], force: bool) -
     logger.debug(&format!("added job '{}' to hook '{}'", key, hook_name));
     logger.debug(&format!("  cmd: {}", cmd));
     Ok(())
+}
+
+/// `cargo clippy -- -D warnings` and `cargo clippy -D warnings` derive the same
+/// key. Both are jobs worth having, so the second is numbered, not refused.
+fn unique_key(derived: &str, jobs: &[Job]) -> String {
+    let taken = |candidate: &str| jobs.iter().any(|job| job.key == candidate);
+
+    if !taken(derived) {
+        return derived.to_string();
+    }
+
+    let mut n = 2;
+    loop {
+        let candidate = format!("{derived}-{n}");
+        if !taken(&candidate) {
+            return candidate;
+        }
+        n += 1;
+    }
 }
 
 fn derive_key(cmd: &str) -> String {
@@ -72,7 +93,7 @@ fn derive_key(cmd: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::derive_key;
+    use super::{Job, derive_key, unique_key};
 
     #[test]
     fn a_command_becomes_its_words_joined() {
@@ -94,6 +115,40 @@ mod tests {
     fn separators_at_either_end_are_left_off() {
         assert_eq!(derive_key("  echo hi  "), "echo-hi");
         assert_eq!(derive_key("--echo--"), "echo");
+    }
+
+    fn jobs(keys: &[&str]) -> Vec<Job> {
+        keys.iter()
+            .map(|key| Job {
+                key: key.to_string(),
+                cmd: format!("cmd for {key}"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_key_nothing_holds_is_used_as_derived() {
+        assert_eq!(
+            unique_key("cargo-test", &jobs(&["cargo-clippy"])),
+            "cargo-test"
+        );
+    }
+
+    #[test]
+    fn a_key_already_taken_is_numbered_from_two() {
+        assert_eq!(
+            unique_key(
+                "cargo-clippy-D-warnings",
+                &jobs(&["cargo-clippy-D-warnings"])
+            ),
+            "cargo-clippy-D-warnings-2"
+        );
+    }
+
+    #[test]
+    fn numbering_carries_on_past_a_number_already_taken() {
+        let taken = jobs(&["lint", "lint-2", "lint-3"]);
+        assert_eq!(unique_key("lint", &taken), "lint-4");
     }
 
     #[test]
