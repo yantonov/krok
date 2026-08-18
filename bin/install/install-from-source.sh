@@ -34,6 +34,6 @@ case ":$PATH:" in
     echo ""
     echo "Note: ${INSTALL_DIR} is not in your PATH."
     echo "Add the following line to your shell profile:"
-    echo "  export PATH=\"\${INSTALL_DIR}:\$PATH\""
+    echo "  export PATH=\"${INSTALL_DIR}:\$PATH\""
     ;;
 esac
