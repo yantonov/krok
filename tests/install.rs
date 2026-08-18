@@ -107,6 +107,25 @@ fn fwd_slash(p: &Path) -> String {
     p.to_string_lossy().replace('\\', "/")
 }
 
+fn write_script(path: &Path, body: &str) {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("create script directory");
+    }
+    std::fs::write(path, format!("#!/usr/bin/env bash\n{body}\n")).expect("write script");
+
+    // Git bash takes the leading '#!' as the executable bit, so this only has
+    // to be done where the bit is real.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(path)
+            .expect("script metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path, perms).expect("set script permissions");
+    }
+}
+
 #[test]
 fn run_executes_jobs_in_registered_order() {
     let tmp = TempDir::new().expect("tempdir");
@@ -378,6 +397,147 @@ fn run_forwards_hook_args_to_jobs() {
     assert!(
         content.contains("passed-arg"),
         "hook arg not forwarded to job: {content}"
+    );
+}
+
+#[test]
+fn run_executes_a_script_of_the_repository() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    // The form the readme suggests: a path relative to the repository root,
+    // which is the directory git fires hooks from.
+    let marker = repo.join("script-ran.txt");
+    write_script(
+        &repo.join("scripts").join("check.sh"),
+        &format!("echo ran > {}", fwd_slash(&marker)),
+    );
+
+    run_krok(repo, &["add", "commit-msg", "./scripts/check.sh"]);
+    run_krok(repo, &["run", "commit-msg"]);
+
+    assert!(
+        marker.exists(),
+        "a job holding a path relative to the repository root did not run"
+    );
+}
+
+#[test]
+fn run_starts_jobs_at_the_repository_root() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo here > from-job.txt"]);
+
+    let subdir = repo.join("deep").join("sub");
+    std::fs::create_dir_all(&subdir).expect("create subdir");
+    run_krok(&subdir, &["run", "pre-commit"]);
+
+    assert!(
+        repo.join("from-job.txt").exists(),
+        "the job did not start at the repository root"
+    );
+    assert!(
+        !subdir.join("from-job.txt").exists(),
+        "the job started in the directory krok was invoked from"
+    );
+}
+
+#[test]
+fn run_exports_the_repository_root_and_the_hooks_directory() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    // The job's own exit code carries the assertion: run_krok requires success.
+    run_krok(
+        repo,
+        &[
+            "add",
+            "pre-commit",
+            "test -d \"$KROK_REPO_ROOT/.git\" && test -f \"$KROK_HOOKS_DIR/pre-commit\"",
+        ],
+    );
+    run_krok(repo, &["run", "pre-commit"]);
+}
+
+#[test]
+fn preserved_foreign_hook_runs() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let marker = repo.join("foreign-ran.txt");
+    write_script(
+        &repo.join(".git").join("hooks").join("pre-commit"),
+        &format!("echo ran > {}", fwd_slash(&marker)),
+    );
+
+    run_krok(repo, &["add", "pre-commit", "true"]);
+    run_krok(repo, &["run", "pre-commit"]);
+
+    assert!(
+        marker.exists(),
+        "the hook krok took over from was registered but never ran"
+    );
+}
+
+// The command registered for a preserved hook is quoted, and a quoted command
+// is what windows hands to sh least reliably. A repository whose path holds a
+// space is the case that needs the quotes in the first place.
+#[test]
+fn preserved_foreign_hook_runs_from_a_path_holding_a_space() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path().join("my repo dir");
+    std::fs::create_dir_all(&repo).expect("create repo directory");
+    git_init(&repo);
+
+    let marker = repo.join("foreign-ran.txt");
+    write_script(
+        &repo.join(".git").join("hooks").join("pre-commit"),
+        &format!("echo ran > \"{}\"", fwd_slash(&marker)),
+    );
+
+    run_krok(&repo, &["add", "pre-commit", "true"]);
+    run_krok(&repo, &["run", "pre-commit"]);
+
+    assert!(
+        marker.exists(),
+        "the preserved hook did not run from a path holding a space"
+    );
+}
+
+#[test]
+fn preserved_foreign_hook_of_an_older_config_runs() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let marker = repo.join("legacy-ran.txt");
+    write_script(
+        &repo.join(".git").join("hooks").join("pre-commit"),
+        &format!("echo ran > {}", fwd_slash(&marker)),
+    );
+    run_krok(repo, &["add", "pre-commit", "true"]);
+
+    // Back into the shape krok used to write: a bare path read against the
+    // hooks directory.
+    let config_path = repo.join(".git").join("krok-config.yml");
+    let config = std::fs::read_to_string(&config_path).expect("read config");
+    let legacy = config.replace(
+        "\"$KROK_HOOKS_DIR/pre-commit-hooks/existing-pre-commit\"",
+        "pre-commit-hooks/existing-pre-commit",
+    );
+    assert_ne!(legacy, config, "the config to rewrite was not found");
+    std::fs::write(&config_path, legacy).expect("write legacy config");
+
+    run_krok(repo, &["run", "pre-commit"]);
+
+    assert!(
+        marker.exists(),
+        "a config written by an earlier krok stopped working"
     );
 }
 

@@ -25,7 +25,7 @@
 
 ## How it works
 
-The first time you run `krok add <hook-name> <cmd>`, krok writes a small bash wrapper to `.git/hooks/<hook-name>`. When git fires the hook, the wrapper invokes `krok run <hook-name> "$@"`, which executes every job registered for that hook in order.
+The first time you run `krok add <hook-name> <cmd>`, krok writes a small sh wrapper to `.git/hooks/<hook-name>`. When git fires the hook, the wrapper invokes `krok run <hook-name> "$@"`, which executes every job registered for that hook in order.
 
 Subsequent `krok add` calls for the same hook just append to the job list — the wrapper is only installed once.
 
@@ -171,12 +171,26 @@ hooks:
     cmd: cargo clippy -- -D warnings
 ```
 
-| Field | Description                          |
-|-------|--------------------------------------|
-| `key` | Unique identifier within the hook    |
-| `cmd` | Shell command passed to `$SHELL -c`  |
+| Field | Description                     |
+|-------|---------------------------------|
+| `key` | Unique identifier within the hook |
+| `cmd` | Shell command passed to `sh -c` |
 
 You can edit this file directly to reorder jobs, change commands, or remove entries.
+
+Two variables are exported to every job:
+
+| Variable         | Value                         |
+|------------------|-------------------------------|
+| `KROK_REPO_ROOT` | Top level of the working tree |
+| `KROK_HOOKS_DIR` | `.git/hooks`                  |
+
+A preserved foreign hook (see [`add`](#add)) uses one to name itself:
+
+```yaml
+- key: existing-hook
+  cmd: "$KROK_HOOKS_DIR/pre-commit-hooks/existing-pre-commit"
+```
 
 ---
 
@@ -185,10 +199,10 @@ You can edit this file directly to reorder jobs, change commands, or remove entr
 When git fires a hook, the wrapper at `.git/hooks/<hook-name>` invokes `krok run <hook-name> "$@"`, forwarding any arguments git passed. `krok` then reads `.git/krok-config.yml` and executes each job in order via:
 
 ```sh
-$SHELL -c "<cmd>"
+sh -c "<cmd>"
 ```
 
-Output from each job is forwarded directly to the terminal.
+Each job starts at the repository root, the directory git fires hooks from, whichever directory `krok run` was invoked from. Output from each job is forwarded directly to the terminal.
 
 ---
 

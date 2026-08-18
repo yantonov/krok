@@ -5,7 +5,10 @@ use anyhow::{Context, Result};
 
 use crate::config::{Config, load_config, save_config};
 use crate::logger::Logger;
-use crate::wrapper::{WrapperStatus, preserve_foreign_hook, wrapper_status, write_wrapper};
+use crate::wrapper::{
+    EXISTING_HOOK_KEY, WrapperStatus, preserve_foreign_hook, preserved_path, wrapper_status,
+    write_wrapper,
+};
 
 pub fn ensure_installed(logger: &dyn Logger, git_dir: &Path, hook_name: &str) -> Result<()> {
     let hooks_dir = git_dir.join("hooks");
@@ -54,7 +57,6 @@ fn is_fully_installed(
     let Some(jobs) = config.hooks.get(hook_name) else {
         return false;
     };
-    jobs.iter()
-        .filter(|j| j.key == "existing-hook")
-        .all(|j| hooks_dir.join(&j.cmd).exists())
+    !jobs.iter().any(|j| j.key == EXISTING_HOOK_KEY)
+        || preserved_path(hooks_dir, hook_name).exists()
 }

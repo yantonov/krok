@@ -5,6 +5,7 @@ mod env;
 mod git;
 mod hooks;
 mod logger;
+mod shell;
 mod wrapper;
 
 use anyhow::Result;

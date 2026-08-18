@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 use crate::config::config_path;
 use crate::git::find_git_root;
 use crate::logger::Logger;
+use crate::shell::shell_path;
 
 pub fn show(logger: &dyn Logger) -> Result<()> {
     let (_repo_root, git_dir) = ensure_repo_root()?;
@@ -48,7 +49,7 @@ pub fn edit(logger: &dyn Logger) -> Result<()> {
     let editor = git_editor(&repo_root)?;
     logger.debug(&format!("opening editor for {}", path.display()));
 
-    let path_str = path.to_string_lossy().replace('\\', "/");
+    let path_str = shell_path(&path);
     let cmd = format!("{} \"{}\"", editor, path_str);
     let status = Command::new("sh")
         .arg("-c")

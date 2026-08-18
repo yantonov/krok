@@ -1,3 +1,9 @@
+/// Exported to every job: the top level of the working tree.
+pub const REPO_ROOT_VAR: &str = "KROK_REPO_ROOT";
+
+/// Exported to every job: the directory hook scripts live in.
+pub const HOOKS_DIR_VAR: &str = "KROK_HOOKS_DIR";
+
 pub struct Settings {
     pub verbose: bool,
 }

@@ -3,13 +3,16 @@ use std::process;
 
 use anyhow::{Context, Result};
 
-use crate::config::load_config;
+use crate::config::{Job, load_config};
+use crate::env::{HOOKS_DIR_VAR, REPO_ROOT_VAR};
 use crate::git::find_git_root;
 use crate::logger::Logger;
+use crate::shell::{shell_command, shell_path};
+use crate::wrapper::EXISTING_HOOK_KEY;
 
 pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result<()> {
     let cwd = std::env::current_dir().context("failed to get current directory")?;
-    let (_repo_root, git_dir) = find_git_root(&cwd)?;
+    let (repo_root, git_dir) = find_git_root(&cwd)?;
     let hooks_dir = git_dir.join("hooks");
 
     let config = load_config(&git_dir)?;
@@ -18,21 +21,27 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
         Some(_) | None => return Ok(()),
     };
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
+    // Not $SHELL: a hook has to behave the same for everyone working in the
+    // repository, and fish or nu would not read the posix syntax jobs are
+    // written in.
+    let shell = "sh";
 
     for job in jobs {
         logger.debug(&format!("[krok] running '{}': {}", job.key, job.cmd));
 
-        let resolved = resolve_cmd(&job.cmd, &hooks_dir);
+        let resolved = legacy_preserved_cmd(job, &hooks_dir).unwrap_or_else(|| job.cmd.clone());
         let cmd = if hook_args.is_empty() {
             resolved
         } else {
             format!("{} {}", resolved, hook_args.join(" "))
         };
 
-        let status = process::Command::new(&shell)
-            .arg("-c")
-            .arg(&cmd)
+        let status = shell_command(shell, &cmd)
+            // Where git itself fires hooks from, so a path in the config is
+            // read against one known place whoever invoked the run.
+            .current_dir(&repo_root)
+            .env(REPO_ROOT_VAR, shell_path(&repo_root))
+            .env(HOOKS_DIR_VAR, shell_path(&hooks_dir))
             .status()
             .with_context(|| format!("failed to start shell for job '{}'", job.key))?;
 
@@ -49,12 +58,14 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
     Ok(())
 }
 
-fn resolve_cmd(cmd: &str, hooks_dir: &Path) -> String {
-    let first_word = cmd.split_whitespace().next().unwrap_or(cmd);
-    if first_word.contains('/') && !first_word.starts_with('/') {
-        let hooks_dir_str = hooks_dir.to_string_lossy().replace('\\', "/");
-        format!("{}/{}", hooks_dir_str, cmd)
-    } else {
-        cmd.to_string()
+/// Configs written before the preserved hook named its own location through the
+/// environment hold it as a bare path relative to the hooks directory.
+///
+/// The one reserved key is read that way, and nothing else: a job of the user's
+/// own reaches the shell as written, which is what lets it be a relative path.
+fn legacy_preserved_cmd(job: &Job, hooks_dir: &Path) -> Option<String> {
+    if job.key != EXISTING_HOOK_KEY || job.cmd.contains(HOOKS_DIR_VAR) {
+        return None;
     }
+    Some(format!("\"{}/{}\"", shell_path(hooks_dir), job.cmd))
 }
