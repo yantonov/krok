@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -o errexit -o nounset
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../" && pwd)"

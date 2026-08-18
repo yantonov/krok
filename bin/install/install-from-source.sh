@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 INSTALL_DIR="${HOME}/.local/bin"
 
@@ -27,9 +27,13 @@ case "$(uname -s)" in
     ;;
 esac
 
-if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
-  echo ""
-  echo "Note: ${INSTALL_DIR} is not in your PATH."
-  echo "Add the following line to your shell profile:"
-  echo "  export PATH=\"\${INSTALL_DIR}:\$PATH\""
-fi
+case ":$PATH:" in
+  *":${INSTALL_DIR}:"*)
+    ;;
+  *)
+    echo ""
+    echo "Note: ${INSTALL_DIR} is not in your PATH."
+    echo "Add the following line to your shell profile:"
+    echo "  export PATH=\"\${INSTALL_DIR}:\$PATH\""
+    ;;
+esac
