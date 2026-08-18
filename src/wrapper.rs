@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::config::Job;
-use crate::env::HOOKS_DIR_VAR;
+use crate::env::GIT_DIR_VAR;
 use crate::logger::Logger;
 
 const KROK_MARKER: &str = "git hook manager wrapper";
@@ -44,10 +44,36 @@ pub fn write_wrapper(hook_path: &Path, hook_name: &str) -> Result<()> {
 }
 
 /// Where a foreign hook is kept once krok has taken over its file.
-pub fn preserved_path(hooks_dir: &Path, hook_name: &str) -> PathBuf {
+///
+/// Under the git directory rather than the hooks directory. `core.hooksPath` is
+/// not krok's to control: a tool that sets it after krok installed - husky does,
+/// from a build step, on every fresh checkout - moves the hooks directory out
+/// from under a file already written, and the job naming that file stops
+/// resolving. The git directory is also where the config naming it lives, so the
+/// two cannot come apart.
+pub fn preserved_path(git_dir: &Path, hook_name: &str) -> PathBuf {
+    git_dir.join("krok").join(hook_name).join("existing")
+}
+
+/// Where an earlier krok kept it: under whichever directory was the hooks
+/// directory when it ran. Read, never written.
+fn legacy_preserved_path(hooks_dir: &Path, hook_name: &str) -> PathBuf {
     hooks_dir
         .join(format!("{hook_name}-hooks"))
         .join(format!("existing-{hook_name}"))
+}
+
+/// The preserved hook wherever it may be found: where krok writes it now, then
+/// the hooks directory as it stands, then the default hooks directory an earlier
+/// krok wrote to whatever `core.hooksPath` said.
+pub fn locate_preserved(git_dir: &Path, hooks_dir: &Path, hook_name: &str) -> Option<PathBuf> {
+    [
+        preserved_path(git_dir, hook_name),
+        legacy_preserved_path(hooks_dir, hook_name),
+        legacy_preserved_path(&git_dir.join("hooks"), hook_name),
+    ]
+    .into_iter()
+    .find(|path| path.exists())
 }
 
 /// The command that runs the preserved hook.
@@ -60,17 +86,17 @@ pub fn preserved_path(hooks_dir: &Path, hook_name: &str) -> PathBuf {
 ///
 /// Quoted, because the path of the repository may well contain a space.
 pub fn preserved_cmd(hook_name: &str) -> String {
-    format!("\"${HOOKS_DIR_VAR}/{hook_name}-hooks/existing-{hook_name}\"")
+    format!("\"${GIT_DIR_VAR}/krok/{hook_name}/existing\"")
 }
 
 pub fn preserve_foreign_hook(
     logger: &dyn Logger,
-    hooks_dir: &Path,
+    git_dir: &Path,
     hook_path: &Path,
     hook_name: &str,
     jobs: &mut Vec<Job>,
 ) -> Result<()> {
-    let saved_path = preserved_path(hooks_dir, hook_name);
+    let saved_path = preserved_path(git_dir, hook_name);
     let saved_dir = saved_path
         .parent()
         .expect("the preserved path is built with a parent");
@@ -183,10 +209,18 @@ mod tests {
 
     #[test]
     fn the_preserved_hook_is_named_after_the_hook_it_replaced() {
-        let path = preserved_path(Path::new("/repo/.git/hooks"), "pre-commit");
+        let path = preserved_path(Path::new("/repo/.git"), "pre-commit");
+        assert!(path.ends_with("krok/pre-commit/existing"), "{path:?}");
+    }
+
+    // The hooks directory is the one thing the preserved hook may not be kept
+    // under, because core.hooksPath can move it after the file is written.
+    #[test]
+    fn the_preserved_hook_is_kept_under_the_git_directory() {
+        let git_dir = Path::new("/repo/.git");
         assert!(
-            path.ends_with("pre-commit-hooks/existing-pre-commit"),
-            "{path:?}"
+            preserved_path(git_dir, "pre-commit").starts_with(git_dir.join("krok")),
+            "the preserved hook left the git directory"
         );
     }
 
@@ -195,16 +229,39 @@ mod tests {
     #[test]
     fn the_preserved_command_points_at_the_preserved_file() {
         let cmd = preserved_cmd("pre-commit");
-        assert_eq!(
-            cmd,
-            format!("\"${HOOKS_DIR_VAR}/pre-commit-hooks/existing-pre-commit\"")
-        );
+        assert_eq!(cmd, format!("\"${GIT_DIR_VAR}/krok/pre-commit/existing\""));
 
-        let tail = preserved_path(Path::new("hooks"), "pre-commit");
-        let tail = tail.strip_prefix("hooks").expect("built from that prefix");
+        let tail = preserved_path(Path::new("git-dir"), "pre-commit");
+        let tail = tail
+            .strip_prefix("git-dir")
+            .expect("built from that prefix");
         assert!(
             cmd.contains(&crate::shell::shell_path(tail)),
             "{cmd} does not name {tail:?}"
         );
+    }
+
+    // An upgrade finds the file where it was left, or a hook krok has taken over
+    // would look uninstalled and be preserved a second time.
+    #[test]
+    fn a_preserved_hook_of_an_earlier_krok_is_still_found() {
+        let tmp = TempDir::new().expect("tempdir");
+        let git_dir = tmp.path().join(".git");
+        let hooks_dir = tmp.path().join(".husky");
+
+        assert_eq!(locate_preserved(&git_dir, &hooks_dir, "pre-commit"), None);
+
+        for stale in [
+            legacy_preserved_path(&hooks_dir, "pre-commit"),
+            legacy_preserved_path(&git_dir.join("hooks"), "pre-commit"),
+        ] {
+            fs::create_dir_all(stale.parent().expect("a parent")).expect("create");
+            fs::write(&stale, "#!/bin/sh\n").expect("write");
+            assert_eq!(
+                locate_preserved(&git_dir, &hooks_dir, "pre-commit"),
+                Some(stale.clone())
+            );
+            fs::remove_file(&stale).expect("remove");
+        }
     }
 }

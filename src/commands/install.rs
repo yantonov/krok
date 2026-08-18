@@ -7,7 +7,7 @@ use crate::config::{Config, load_config, save_config};
 use crate::git::Repository;
 use crate::logger::Logger;
 use crate::wrapper::{
-    EXISTING_HOOK_KEY, WrapperStatus, preserve_foreign_hook, preserved_path, wrapper_status,
+    EXISTING_HOOK_KEY, WrapperStatus, locate_preserved, preserve_foreign_hook, wrapper_status,
     write_wrapper,
 };
 
@@ -18,7 +18,7 @@ pub fn ensure_installed(logger: &dyn Logger, repo: &Repository, hook_name: &str)
     let hook_path = hooks_dir.join(hook_name);
     let mut config = load_config(&repo.git_dir)?;
 
-    if is_fully_installed(&hook_path, hooks_dir, hook_name, &config) {
+    if is_fully_installed(&hook_path, repo, hook_name, &config) {
         return Ok(());
     }
 
@@ -29,7 +29,7 @@ pub fn ensure_installed(logger: &dyn Logger, repo: &Repository, hook_name: &str)
         wrapper_status(&hook_path, hook_name),
         WrapperStatus::DriftedForeign
     ) {
-        preserve_foreign_hook(logger, hooks_dir, &hook_path, hook_name, jobs)?;
+        preserve_foreign_hook(logger, &repo.git_dir, &hook_path, hook_name, jobs)?;
     }
 
     write_wrapper(&hook_path, hook_name)?;
@@ -48,7 +48,7 @@ pub fn ensure_installed(logger: &dyn Logger, repo: &Repository, hook_name: &str)
 
 fn is_fully_installed(
     hook_path: &Path,
-    hooks_dir: &Path,
+    repo: &Repository,
     hook_name: &str,
     config: &Config,
 ) -> bool {
@@ -58,6 +58,8 @@ fn is_fully_installed(
     let Some(jobs) = config.hooks.get(hook_name) else {
         return false;
     };
+    // Wherever it was left, and not only where krok would put it now, or an
+    // upgrade would read every hook installed by an earlier one as unfinished.
     !jobs.iter().any(|j| j.key == EXISTING_HOOK_KEY)
-        || preserved_path(hooks_dir, hook_name).exists()
+        || locate_preserved(&repo.git_dir, &repo.hooks_dir, hook_name).is_some()
 }

@@ -95,7 +95,7 @@ Appends a new job to the named hook's job list. On the first `add` for a hook, k
 - `<hook-name>` is validated against the list of built-in git hook names from [`githooks(5)`](https://git-scm.com/docs/githooks). Pass `--force` (`-f`) to skip the check — useful when working with a git fork or with a hook newer than the krok release you have installed.
 - The job key is derived from the command (ASCII alphanumeric characters, spaces replaced with `-`).
 - Returns an error if a job with the same key already exists for that hook.
-- If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/hooks/<hook-name>-hooks/existing-<hook-name>` and registered as the first job so it continues to run.
+- If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/krok/<hook-name>/existing` and registered as the first job so it continues to run. It is kept under the git directory rather than beside the hook, because `core.hooksPath` may be repointed later — husky does this from a build step — which would leave a copy under the hooks directory behind.
 
 **Examples:**
 
@@ -129,7 +129,7 @@ The hook must already have a config entry (i.e. you must have previously run `kr
 | Matches the canonical wrapper | nothing | `hook '<name>' is up to date` |
 | File missing | write the wrapper | `wrote wrapper for '<name>'` |
 | Older / modified krok wrapper | overwrite | `replaced outdated krok wrapper for '<name>'` |
-| A foreign (non-krok) script | preserve it to `<hook>-hooks/existing-<hook>` and register as a job, then write the wrapper | `preserved foreign hook and wrote krok wrapper for '<name>'` |
+| A foreign (non-krok) script | preserve it to `.git/krok/<hook>/existing` and register as a job, then write the wrapper | `preserved foreign hook and wrote krok wrapper for '<name>'` |
 
 ### config show
 
@@ -177,12 +177,13 @@ hooks:
 
 You can edit this file directly to reorder jobs, change commands, or remove entries.
 
-Two variables are exported to every job:
+Three variables are exported to every job:
 
-| Variable         | Value                         |
-|------------------|-------------------------------|
-| `KROK_REPO_ROOT` | Top level of the working tree |
-| `KROK_HOOKS_DIR` | Where hook scripts live       |
+| Variable         | Value                                          |
+|------------------|------------------------------------------------|
+| `KROK_REPO_ROOT` | Top level of the working tree                  |
+| `KROK_HOOKS_DIR` | Where hook scripts live, honouring `core.hooksPath` |
+| `KROK_GIT_DIR`   | The git directory shared by every worktree     |
 
 ---
 

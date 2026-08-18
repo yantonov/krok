@@ -42,7 +42,7 @@ pub fn run(logger: &dyn Logger, hook_name: &str, force: bool) -> Result<()> {
         WrapperStatus::DriftedForeign => {
             let original = config.clone();
             let jobs = config.hooks.get_mut(hook_name).expect("entry exists");
-            preserve_foreign_hook(logger, hooks_dir, &hook_path, hook_name, jobs)?;
+            preserve_foreign_hook(logger, &repo.git_dir, &hook_path, hook_name, jobs)?;
             write_wrapper(&hook_path, hook_name)?;
             if config != original {
                 save_config(&repo.git_dir, &config)?;

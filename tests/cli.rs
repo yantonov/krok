@@ -409,9 +409,11 @@ fn add_preserves_existing_non_krok_hook() {
 
     run_krok(repo, &["add", "pre-commit", "echo new"]);
 
-    let preserved = hooks_dir
-        .join("pre-commit-hooks")
-        .join("existing-pre-commit");
+    let preserved = repo
+        .join(".git")
+        .join("krok")
+        .join("pre-commit")
+        .join("existing");
     assert!(
         preserved.exists(),
         "preserved hook file not found at {}",
@@ -598,12 +600,23 @@ fn preserved_foreign_hook_of_an_older_config_runs() {
     );
     run_krok(repo, &["add", "pre-commit", "true"]);
 
-    // Back into the shape krok used to write: a bare path read against the
-    // hooks directory.
+    // Back into the shape krok used to leave: the file under the hooks
+    // directory, named by a bare path read against it.
+    let legacy_dir = repo.join(".git").join("hooks").join("pre-commit-hooks");
+    std::fs::create_dir_all(&legacy_dir).expect("create legacy directory");
+    std::fs::rename(
+        repo.join(".git")
+            .join("krok")
+            .join("pre-commit")
+            .join("existing"),
+        legacy_dir.join("existing-pre-commit"),
+    )
+    .expect("move the preserved hook to where an older krok left it");
+
     let config_path = repo.join(".git").join("krok-config.yml");
     let config = std::fs::read_to_string(&config_path).expect("read config");
     let legacy = config.replace(
-        "\"$KROK_HOOKS_DIR/pre-commit-hooks/existing-pre-commit\"",
+        "\"$KROK_GIT_DIR/krok/pre-commit/existing\"",
         "pre-commit-hooks/existing-pre-commit",
     );
     assert_ne!(legacy, config, "the config to rewrite was not found");
@@ -614,6 +627,33 @@ fn preserved_foreign_hook_of_an_older_config_runs() {
     assert!(
         marker.exists(),
         "a config written by an earlier krok stopped working"
+    );
+}
+
+// The case this all turns on. Husky runs `husky install` from a build step and
+// sets core.hooksPath, on every fresh checkout, which is to say after krok
+// installed. A preserved hook kept under the hooks directory is left behind by
+// that, and the job naming it stops resolving.
+#[test]
+fn a_preserved_hook_outlives_core_hooks_path_moving() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let marker = repo.join("foreign-ran.txt");
+    write_script(
+        &repo.join(".git").join("hooks").join("pre-commit"),
+        &format!("echo ran > {}", fwd_slash(&marker)),
+    );
+    run_krok(repo, &["add", "pre-commit", "true"]);
+
+    git(repo, &["config", "core.hooksPath", "my-hooks"]);
+
+    run_krok(repo, &["run", "pre-commit"]);
+
+    assert!(
+        marker.exists(),
+        "the preserved hook was lost when core.hooksPath moved"
     );
 }
 
@@ -881,9 +921,9 @@ fn recover_preserves_foreign_hook() {
 
     let preserved = repo
         .join(".git")
-        .join("hooks")
-        .join("pre-commit-hooks")
-        .join("existing-pre-commit");
+        .join("krok")
+        .join("pre-commit")
+        .join("existing");
     assert!(preserved.exists(), "preserved file missing");
     let preserved_content = std::fs::read_to_string(&preserved).expect("read preserved");
     assert_eq!(preserved_content, foreign, "preserved content mismatch");

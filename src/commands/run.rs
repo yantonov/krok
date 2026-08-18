@@ -4,7 +4,7 @@ use std::process;
 use anyhow::{Context, Result};
 
 use crate::config::{Job, load_config};
-use crate::env::{HOOKS_DIR_VAR, REPO_ROOT_VAR};
+use crate::env::{GIT_DIR_VAR, HOOKS_DIR_VAR, REPO_ROOT_VAR};
 use crate::git;
 use crate::logger::Logger;
 use crate::shell::{shell_command, shell_path};
@@ -37,6 +37,7 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
             .current_dir(&repo.root)
             .env(REPO_ROOT_VAR, shell_path(&repo.root))
             .env(HOOKS_DIR_VAR, shell_path(&repo.hooks_dir))
+            .env(GIT_DIR_VAR, shell_path(&repo.git_dir))
             .status()
             .with_context(|| format!("failed to start shell for job '{}'", job.key))?;
 
@@ -58,8 +59,13 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
 ///
 /// The one reserved key is read that way, and nothing else: a job of the user's
 /// own reaches the shell as written, which is what lets it be a relative path.
+///
+/// A cmd naming any variable already locates itself, whichever variable that is,
+/// so what marks one as old is naming none of them. Testing for the hooks
+/// directory variable alone would rewrite the one written against the git
+/// directory, and paste a hooks directory in front of an absolute path.
 fn legacy_preserved_cmd(job: &Job, hooks_dir: &Path) -> Option<String> {
-    if job.key != EXISTING_HOOK_KEY || job.cmd.contains(HOOKS_DIR_VAR) {
+    if job.key != EXISTING_HOOK_KEY || job.cmd.contains('$') {
         return None;
     }
     Some(format!("\"{}/{}\"", shell_path(hooks_dir), job.cmd))
@@ -92,6 +98,18 @@ mod tests {
     #[test]
     fn the_reserved_key_of_a_current_config_is_left_alone() {
         let cmd = crate::wrapper::preserved_cmd("pre-commit");
+        assert_eq!(
+            legacy_preserved_cmd(&job(EXISTING_HOOK_KEY, &cmd), Path::new("/hooks")),
+            None
+        );
+    }
+
+    // The shape in between: written by the krok that named the hooks directory,
+    // whose file is still there to be found. Rewriting it would paste one hooks
+    // directory in front of another.
+    #[test]
+    fn the_reserved_key_naming_the_hooks_directory_is_left_alone() {
+        let cmd = format!("\"${HOOKS_DIR_VAR}/pre-commit-hooks/existing-pre-commit\"");
         assert_eq!(
             legacy_preserved_cmd(&job(EXISTING_HOOK_KEY, &cmd), Path::new("/hooks")),
             None
