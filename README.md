@@ -37,17 +37,17 @@ Jobs are stored in `.git/krok-config.yml`, which you can inspect or edit directl
 
 ### Automated installation
 
-Downloads the latest release and installs it to `~/bin` in one step. Requires `curl`.
+Downloads the latest release and installs it to `~/.local/bin` in one step. Requires `curl`.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/yantonov/git-hook-runner/master/bin/download.sh | sh
+curl -fsSL https://raw.githubusercontent.com/yantonov/krok/master/bin/install/download.sh | sh
 ```
 
 ### Download prebuilt binary
 
 If you don't like to use curl + bash approach due to security reasons, for example, you can download prebuilt binary.
 
-1. Go to the [Releases](https://github.com/yantonov/git-hook-runner/releases) page.
+1. Go to the [Releases](https://github.com/yantonov/krok/releases) page.
 2. Download the archive for your platform:
    - `krok-linux-<version>.tar.gz` — Linux
    - `krok-macos-<version>.tar.gz` — macOS
@@ -56,9 +56,9 @@ If you don't like to use curl + bash approach due to security reasons, for examp
 
 ```sh
 tar -xzf krok-<os>-<version>.tar.gz
-mkdir -p ~/bin
-cp krok ~/bin/krok
-chmod +x ~/bin/krok
+mkdir -p ~/.local/bin
+cp krok ~/.local/bin/krok
+chmod +x ~/.local/bin/krok
 ```
 
 ### Build from source
@@ -66,12 +66,12 @@ chmod +x ~/bin/krok
 **Prerequisites:** Rust toolchain (`cargo`).
 
 ```sh
-git clone https://github.com/yantonov/git-hook-runner.git
-cd git-hook-runner
-bin/install-from-source.sh
+git clone https://github.com/yantonov/krok.git
+cd krok
+bin/install/install-from-source.sh
 ```
 
-This builds a release binary and copies it to `~/bin/krok`.
+This builds a release binary and copies it to `~/.local/bin/krok`.
 
 ---
 
