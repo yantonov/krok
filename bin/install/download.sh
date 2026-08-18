@@ -2,9 +2,6 @@
 
 set -eu
 
-SCRIPT="$(basename "$0")"
-cd "$(dirname "$0")"
-
 # Detect OS
 case "$(uname -s)" in
   Linux*)
