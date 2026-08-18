@@ -42,7 +42,7 @@ On Windows, krok runs under the sh that git ships, so it expects Git Bash.
 Downloads the latest release and installs it to `~/.local/bin` in one step. Requires `curl`.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/yantonov/krok/master/bin/install/download.sh | sh
+curl -fsSL https://raw.githubusercontent.com/yantonov/krok/master/bin/install/install.sh | sh
 ```
 
 ### Download prebuilt binary
