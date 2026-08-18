@@ -55,8 +55,6 @@ echo "Downloading: ${DOWNLOAD_URL}"
 TMP_DIR="$(mktemp -d)"
 ARCHIVE_PATH="${TMP_DIR}/${EXECUTABLE_FILENAME}.tar.gz"
 
-echo $ARCHIVE_PATH
-
 # Download archive
 curl -fL "${DOWNLOAD_URL}" -o "${ARCHIVE_PATH}"
 
