@@ -35,6 +35,8 @@ Jobs are stored in `.git/krok-config.yml`, which you can inspect or edit directl
 
 ## Installation
 
+On Windows, krok runs under the sh that git ships, so it expects Git Bash.
+
 ### Automated installation
 
 Downloads the latest release and installs it to `~/.local/bin` in one step. Requires `curl`.
@@ -48,14 +50,11 @@ curl -fsSL https://raw.githubusercontent.com/yantonov/krok/master/bin/install/do
 If you don't like to use curl + bash approach due to security reasons, for example, you can download prebuilt binary.
 
 1. Go to the [Releases](https://github.com/yantonov/krok/releases) page.
-2. Download the archive for your platform:
-   - `krok-linux-<version>.tar.gz` — Linux
-   - `krok-macos-<version>.tar.gz` — macOS
-   - `krok-windows-<version>.tar.gz` — Windows (Git Bash)
+2. Download the archive for your platform.
 3. Extract and place the binary somewhere on your `$PATH`:
 
 ```sh
-tar -xzf krok-<os>-<version>.tar.gz
+tar -xzf <archive>.tar.gz
 mkdir -p ~/.local/bin
 cp krok ~/.local/bin/krok
 chmod +x ~/.local/bin/krok
