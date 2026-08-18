@@ -8,7 +8,7 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum Commands {
+pub enum Commands {
     /// Add a command to a hook's job list (installs the hook if needed)
     Add {
         /// Name of the git hook (e.g. pre-commit)
@@ -44,7 +44,7 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
-enum ConfigAction {
+pub enum ConfigAction {
     /// Print the config file to stdout
     Show,
     /// Open the config file in the git editor
@@ -53,45 +53,6 @@ enum ConfigAction {
     Path,
 }
 
-pub enum Invocation {
-    Add {
-        hook_name: String,
-        args: Vec<String>,
-        force: bool,
-    },
-    Run {
-        hook_name: String,
-        hook_args: Vec<String>,
-    },
-    Recover {
-        hook_name: String,
-        force: bool,
-    },
-    ConfigShow,
-    ConfigEdit,
-    ConfigPath,
-}
-
-pub fn parse() -> Invocation {
-    match Cli::parse().command {
-        Commands::Add {
-            hook_name,
-            args,
-            force,
-        } => Invocation::Add {
-            hook_name,
-            args,
-            force,
-        },
-        Commands::Run { hook_name, args } => Invocation::Run {
-            hook_name,
-            hook_args: args,
-        },
-        Commands::Recover { hook_name, force } => Invocation::Recover { hook_name, force },
-        Commands::Config { action } => match action {
-            ConfigAction::Show => Invocation::ConfigShow,
-            ConfigAction::Edit => Invocation::ConfigEdit,
-            ConfigAction::Path => Invocation::ConfigPath,
-        },
-    }
+pub fn parse() -> Commands {
+    Cli::parse().command
 }
