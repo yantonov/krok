@@ -199,8 +199,10 @@ A preserved foreign hook (see [`add`](#add)) uses one to name itself:
 When git fires a hook, the wrapper at `.git/hooks/<hook-name>` invokes `krok run <hook-name> "$@"`, forwarding any arguments git passed. `krok` then reads `.git/krok-config.yml` and executes each job in order via:
 
 ```sh
-sh -c "<cmd>"
+sh -c '<cmd> "$@"' <hook-name> <arguments git passed>
 ```
+
+The arguments reach the job as positional parameters, so it can read them individually as `$1`, `$2`.
 
 Each job starts at the repository root, the directory git fires hooks from, whichever directory `krok run` was invoked from. Output from each job is forwarded directly to the terminal.
 

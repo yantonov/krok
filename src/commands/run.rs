@@ -29,16 +29,12 @@ pub fn run(logger: &dyn Logger, hook_name: &str, hook_args: &[String]) -> Result
     for job in jobs {
         logger.debug(&format!("[krok] running '{}': {}", job.key, job.cmd));
 
-        let resolved = legacy_preserved_cmd(job, &hooks_dir).unwrap_or_else(|| job.cmd.clone());
-        let cmd = if hook_args.is_empty() {
-            resolved
-        } else {
-            format!("{} {}", resolved, hook_args.join(" "))
-        };
+        let cmd = legacy_preserved_cmd(job, &hooks_dir).unwrap_or_else(|| job.cmd.clone());
 
-        let status = shell_command(shell, &cmd)
-            // Where git itself fires hooks from, so a path in the config is
-            // read against one known place whoever invoked the run.
+        let script = format!("{cmd} \"$@\"");
+
+        let status = shell_command(shell, &script, hook_name, hook_args)
+            // Where git itself fires hooks from.
             .current_dir(&repo_root)
             .env(REPO_ROOT_VAR, shell_path(&repo_root))
             .env(HOOKS_DIR_VAR, shell_path(&hooks_dir))

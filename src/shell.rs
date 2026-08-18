@@ -9,29 +9,38 @@ pub fn shell_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-/// `sh -c <script>`, with the script reaching sh as it was written.
+/// `sh -c <script> <name> <arguments...>`, where `name` becomes the `$0` sh
+/// names in its own diagnostics.
 ///
-/// On windows that takes doing. Windows hands a process one command line rather
+/// On windows this takes doing. Windows hands a process one command line rather
 /// than a list of arguments, and the sh git ships parses that line itself. Rust
 /// wraps an argument in quotes only when it holds a space, while escaping the
 /// quotes inside it either way, so a script quoted end to end that holds no
 /// space - say `"$KROK_HOOKS_DIR/pre-commit-hooks/existing-pre-commit"` -
 /// arrives escaped but unwrapped, and sh dies looking for a closing quote.
-/// Quoting it here, always, is what rust already does for the scripts that do
-/// hold a space.
-pub fn shell_command(shell: &str, script: &str) -> Command {
+/// Quoting here, always, is what rust already does for the ones that do hold a
+/// space.
+pub fn shell_command(shell: &str, script: &str, name: &str, arguments: &[String]) -> Command {
     let mut command = Command::new(shell);
     command.arg("-c");
 
+    push(&mut command, script);
+    push(&mut command, name);
+    for argument in arguments {
+        push(&mut command, argument);
+    }
+
+    command
+}
+
+fn push(command: &mut Command, argument: &str) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        command.raw_arg(quoted(script));
+        command.raw_arg(quoted(argument));
     }
     #[cfg(not(windows))]
-    command.arg(script);
-
-    command
+    command.arg(argument);
 }
 
 /// One argument, quoted the way windows expects to read it back.

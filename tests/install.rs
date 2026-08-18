@@ -111,7 +111,7 @@ fn write_script(path: &Path, body: &str) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).expect("create script directory");
     }
-    std::fs::write(path, format!("#!/usr/bin/env bash\n{body}\n")).expect("write script");
+    std::fs::write(path, format!("#!/usr/bin/env sh\n{body}\n")).expect("write script");
 
     // Git bash takes the leading '#!' as the executable bit, so this only has
     // to be done where the bit is real.
@@ -538,6 +538,49 @@ fn preserved_foreign_hook_of_an_older_config_runs() {
     assert!(
         marker.exists(),
         "a config written by an earlier krok stopped working"
+    );
+}
+
+#[test]
+fn run_forwards_a_hook_argument_holding_a_space_whole() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    let seen = repo.join("seen.txt");
+    write_script(&repo.join("show.sh"), "printf '[%s]\\n' \"$@\"");
+    run_krok(
+        repo,
+        &[
+            "add",
+            "commit-msg",
+            &format!("./show.sh > {}", fwd_slash(&seen)),
+        ],
+    );
+
+    run_krok(repo, &["run", "commit-msg", "my file.txt"]);
+
+    let content = std::fs::read_to_string(&seen).expect("read seen file");
+    assert_eq!(
+        content.lines().collect::<Vec<_>>(),
+        vec!["[my file.txt]"],
+        "the argument did not arrive whole: {content}"
+    );
+}
+
+#[test]
+fn a_hook_argument_is_not_read_as_shell_syntax() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "commit-msg", "true"]);
+
+    run_krok(repo, &["run", "commit-msg", "; echo pwned > pwned.txt"]);
+
+    assert!(
+        !repo.join("pwned.txt").exists(),
+        "a hook argument was read as shell syntax"
     );
 }
 
