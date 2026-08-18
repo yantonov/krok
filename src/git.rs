@@ -76,3 +76,34 @@ fn absolute(start: &Path, answer: &str) -> PathBuf {
         start.join(path)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Git answers with a path relative to the directory it was asked in, so a
+    // relative answer only means anything alongside that directory.
+    #[test]
+    fn a_relative_answer_is_read_against_the_directory_git_was_asked_in() {
+        let start = Path::new("/repo/deep/sub");
+        assert_eq!(absolute(start, ".git"), start.join(".git"));
+        assert_eq!(
+            absolute(start, "../../.git/hooks"),
+            start.join("../../.git/hooks")
+        );
+    }
+
+    #[test]
+    fn an_absolute_answer_is_taken_as_it_is() {
+        // Whatever counts as absolute here: the shape differs by platform.
+        let absolute_here = std::env::current_dir().expect("a current directory");
+        assert!(absolute_here.is_absolute());
+        assert_eq!(
+            absolute(
+                Path::new("/somewhere/else"),
+                &absolute_here.to_string_lossy()
+            ),
+            absolute_here
+        );
+    }
+}

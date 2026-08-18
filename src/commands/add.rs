@@ -69,3 +69,36 @@ fn derive_key(cmd: &str) -> String {
         key
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::derive_key;
+
+    #[test]
+    fn a_command_becomes_its_words_joined() {
+        assert_eq!(derive_key("cargo test"), "cargo-test");
+    }
+
+    // The example the readme gives, which is also the one that shows a run of
+    // separators collapsing rather than repeating.
+    #[test]
+    fn punctuation_collapses_into_single_separators() {
+        assert_eq!(
+            derive_key("cargo clippy -- -D warnings"),
+            "cargo-clippy-D-warnings"
+        );
+        assert_eq!(derive_key("./scripts/check.sh"), "scripts-check-sh");
+    }
+
+    #[test]
+    fn separators_at_either_end_are_left_off() {
+        assert_eq!(derive_key("  echo hi  "), "echo-hi");
+        assert_eq!(derive_key("--echo--"), "echo");
+    }
+
+    #[test]
+    fn a_command_of_nothing_but_punctuation_still_has_a_key() {
+        assert_eq!(derive_key("---"), "job");
+        assert_eq!(derive_key(""), "job");
+    }
+}

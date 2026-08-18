@@ -66,3 +66,46 @@ pub fn ensure_valid(name: &str, force: bool) -> Result<()> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // One name out of each group. A group that is written but left out of
+    // ALL_GROUPS would answer for nothing, and would look exactly like a group
+    // that is wired in.
+    #[test]
+    fn every_group_is_reachable() {
+        for name in [
+            "applypatch-msg",
+            "pre-commit",
+            "pre-push",
+            "sendemail-validate",
+            "pre-receive",
+            "pre-merge-commit",
+        ] {
+            assert!(is_known(name), "'{name}' is in a group nothing consults");
+        }
+    }
+
+    #[test]
+    fn a_name_that_is_not_a_hook_is_not_known() {
+        assert!(!is_known("pre-comit"));
+        assert!(!is_known(""));
+        assert!(!is_known("pre-commit "));
+    }
+
+    #[test]
+    fn an_unknown_name_is_refused_unless_forced() {
+        assert!(ensure_valid("pre-commit", false).is_ok());
+        assert!(ensure_valid("pre-comit", false).is_err());
+        assert!(ensure_valid("pre-comit", true).is_ok());
+    }
+
+    #[test]
+    fn the_refusal_says_how_to_get_past_it() {
+        let complaint = ensure_valid("pre-comit", false).unwrap_err().to_string();
+        assert!(complaint.contains("pre-comit"), "{complaint}");
+        assert!(complaint.contains("--force"), "{complaint}");
+    }
+}

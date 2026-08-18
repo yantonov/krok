@@ -109,3 +109,102 @@ fn set_executable(path: &Path) -> Result<()> {
     let _ = path;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn the_wrapper_runs_krok_for_the_hook_it_belongs_to() {
+        let wrapper = expected_wrapper("pre-commit");
+        assert!(wrapper.starts_with("#!/usr/bin/env sh\n"), "{wrapper}");
+        assert!(wrapper.contains(KROK_MARKER), "{wrapper}");
+        assert!(
+            wrapper.contains("exec krok run pre-commit \"$@\""),
+            "{wrapper}"
+        );
+    }
+
+    #[test]
+    fn a_file_that_is_not_there_is_missing_rather_than_foreign() {
+        let tmp = TempDir::new().expect("tempdir");
+        let status = wrapper_status(&tmp.path().join("pre-commit"), "pre-commit");
+        assert!(matches!(status, WrapperStatus::Missing));
+    }
+
+    #[test]
+    fn the_wrapper_as_written_is_aligned() {
+        let tmp = TempDir::new().expect("tempdir");
+        let path = tmp.path().join("pre-commit");
+        fs::write(&path, expected_wrapper("pre-commit")).expect("write");
+        assert!(matches!(
+            wrapper_status(&path, "pre-commit"),
+            WrapperStatus::Aligned
+        ));
+    }
+
+    // The marker is what separates a wrapper an older krok wrote, which may be
+    // replaced, from a script belonging to someone else, which may not.
+    #[test]
+    fn the_marker_decides_who_a_changed_file_belongs_to() {
+        let tmp = TempDir::new().expect("tempdir");
+        let path = tmp.path().join("pre-commit");
+
+        fs::write(
+            &path,
+            format!("#!/bin/sh\n# {KROK_MARKER}\nsomething else\n"),
+        )
+        .expect("write");
+        assert!(matches!(
+            wrapper_status(&path, "pre-commit"),
+            WrapperStatus::DriftedKrok
+        ));
+
+        fs::write(&path, "#!/bin/sh\necho mine\n").expect("write");
+        assert!(matches!(
+            wrapper_status(&path, "pre-commit"),
+            WrapperStatus::DriftedForeign
+        ));
+    }
+
+    // A wrapper written for one hook is not the wrapper of another, or recover
+    // would call an unrelated hook up to date.
+    #[test]
+    fn a_wrapper_for_another_hook_has_drifted() {
+        let tmp = TempDir::new().expect("tempdir");
+        let path = tmp.path().join("pre-push");
+        fs::write(&path, expected_wrapper("pre-commit")).expect("write");
+        assert!(matches!(
+            wrapper_status(&path, "pre-push"),
+            WrapperStatus::DriftedKrok
+        ));
+    }
+
+    #[test]
+    fn the_preserved_hook_is_named_after_the_hook_it_replaced() {
+        let path = preserved_path(Path::new("/repo/.git/hooks"), "pre-commit");
+        assert!(
+            path.ends_with("pre-commit-hooks/existing-pre-commit"),
+            "{path:?}"
+        );
+    }
+
+    // The command has to name the file preserved_path returns, through the
+    // variable krok run exports rather than as a path of its own.
+    #[test]
+    fn the_preserved_command_points_at_the_preserved_file() {
+        let cmd = preserved_cmd("pre-commit");
+        assert_eq!(
+            cmd,
+            format!("\"${HOOKS_DIR_VAR}/pre-commit-hooks/existing-pre-commit\"")
+        );
+
+        let tail = preserved_path(Path::new("hooks"), "pre-commit");
+        let tail = tail.strip_prefix("hooks").expect("built from that prefix");
+        assert!(
+            cmd.contains(&crate::shell::shell_path(tail)),
+            "{cmd} does not name {tail:?}"
+        );
+    }
+}

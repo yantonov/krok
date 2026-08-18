@@ -64,3 +64,54 @@ fn legacy_preserved_cmd(job: &Job, hooks_dir: &Path) -> Option<String> {
     }
     Some(format!("\"{}/{}\"", shell_path(hooks_dir), job.cmd))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn job(key: &str, cmd: &str) -> Job {
+        Job {
+            key: key.to_string(),
+            cmd: cmd.to_string(),
+        }
+    }
+
+    // What an older krok wrote: a path relative to the hooks directory.
+    #[test]
+    fn the_reserved_key_of_an_older_config_is_read_against_the_hooks_directory() {
+        let cmd = legacy_preserved_cmd(
+            &job(EXISTING_HOOK_KEY, "pre-commit-hooks/existing-pre-commit"),
+            Path::new("/repo/.git/hooks"),
+        );
+        assert_eq!(
+            cmd.as_deref(),
+            Some("\"/repo/.git/hooks/pre-commit-hooks/existing-pre-commit\"")
+        );
+    }
+
+    #[test]
+    fn the_reserved_key_of_a_current_config_is_left_alone() {
+        let cmd = crate::wrapper::preserved_cmd("pre-commit");
+        assert_eq!(
+            legacy_preserved_cmd(&job(EXISTING_HOOK_KEY, &cmd), Path::new("/hooks")),
+            None
+        );
+    }
+
+    // The whole point of the fix this replaced: a job of the user's own is never
+    // rewritten, whatever it looks like.
+    #[test]
+    fn a_job_of_the_users_own_is_never_rewritten() {
+        for cmd in [
+            "./scripts/check.sh",
+            "pre-commit-hooks/existing-pre-commit",
+            "cargo test",
+        ] {
+            assert_eq!(
+                legacy_preserved_cmd(&job("scripts-check-sh", cmd), Path::new("/hooks")),
+                None,
+                "{cmd} was rewritten"
+            );
+        }
+    }
+}

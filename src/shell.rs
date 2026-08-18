@@ -105,3 +105,19 @@ mod tests {
         assert_eq!(quoted(r"cd C:\dir\"), r#""cd C:\dir\\""#);
     }
 }
+
+#[cfg(test)]
+mod path_tests {
+    use super::shell_path;
+    use std::path::Path;
+
+    #[test]
+    fn backslashes_become_the_separator_sh_reads() {
+        assert_eq!(shell_path(Path::new(r"C:\dir\hooks")), "C:/dir/hooks");
+    }
+
+    #[test]
+    fn a_path_sh_already_reads_is_left_as_it_is() {
+        assert_eq!(shell_path(Path::new("/dir/hooks")), "/dir/hooks");
+    }
+}
