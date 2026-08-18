@@ -10,8 +10,16 @@ name: ci
 
 jobs:
   build_and_test:
-    name: Rust project
-    runs-on: ubuntu-latest
+    name: Rust project (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # on windows-latest this is Git Bash, the shell the tool targets there
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.97.1
@@ -19,6 +27,9 @@ jobs:
           # the action installs a minimal toolchain, these have to be asked for
           components: clippy, rustfmt
       - run: cargo build
+      # linted on every operating system rather than on one: the executable bit
+      # and the quoting of a command line are each written for one of them and
+      # invisible to the others
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo fmt --check
       - run: cargo test
