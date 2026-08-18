@@ -23,13 +23,18 @@ pub fn run(logger: &dyn Logger, hook_name: &str, args: &[String], force: bool) -
 
     let cmd = args.join(" ");
 
+    // Asking for a job that is already registered is what re-running the script
+    // that bootstraps a checkout does, and the job list already says what it
+    // asked for, so there is nothing to add and nothing to complain about.
+    // Refusing failed those scripts, which run under `set -e`, and in a
+    // workspace of several repositories took the ones not reached yet with them.
+    // The wrapper was seen to either way: ensure_installed ran above.
     if let Some(existing) = jobs.iter().find(|j| j.cmd == cmd) {
-        bail!(
+        logger.info(&format!(
             "'{}' is already registered for hook '{}', as '{}'",
-            cmd,
-            hook_name,
-            existing.key
-        );
+            cmd, hook_name, existing.key
+        ));
+        return Ok(());
     }
 
     let key = unique_key(&derive_key(&cmd), jobs);

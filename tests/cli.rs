@@ -295,13 +295,18 @@ fn two_commands_that_derive_one_key_both_register() {
     assert_ne!(keys[0], keys[1], "the two jobs share a key: {config}");
 }
 
+// The script that bootstraps a checkout registers the same job every time it
+// runs, under `set -e`. Asking for one already registered has to be an answer,
+// not a failure.
 #[test]
-fn add_rejects_duplicate_key() {
+fn add_of_a_job_already_registered_changes_nothing() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();
     git_init(repo);
 
     run_krok(repo, &["add", "pre-commit", "echo same"]);
+    let after_first =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
 
     let output = Command::new(krok_bin())
         .args(["add", "pre-commit", "echo same"])
@@ -310,16 +315,40 @@ fn add_rejects_duplicate_key() {
         .expect("failed to execute krok");
 
     assert!(
-        !output.status.success(),
-        "duplicate add should fail; stdout={} stderr={}",
+        output.status.success(),
+        "registering a job twice failed; stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stderr.contains("already registered"),
-        "expected duplicate-key error, got stderr: {stderr}"
+        stdout.contains("already registered"),
+        "expected to be told the job was already there, got stdout: {stdout}"
     );
+
+    let after_second =
+        std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
+    assert_eq!(
+        after_second, after_first,
+        "the second add wrote to the config"
+    );
+}
+
+// Re-running that script is also how a wrapper someone deleted comes back, so
+// answering that the job is already registered may not come first.
+#[test]
+fn add_of_a_job_already_registered_still_writes_the_wrapper_back() {
+    let tmp = TempDir::new().expect("tempdir");
+    let repo = tmp.path();
+    git_init(repo);
+
+    run_krok(repo, &["add", "pre-commit", "echo same"]);
+    let wrapper = repo.join(".git").join("hooks").join("pre-commit");
+    std::fs::remove_file(&wrapper).expect("remove the wrapper");
+
+    run_krok(repo, &["add", "pre-commit", "echo same"]);
+
+    assert!(wrapper.exists(), "the wrapper was not written back");
 }
 
 #[test]

@@ -94,7 +94,7 @@ Appends a new job to the named hook's job list. On the first `add` for a hook, k
 
 - `<hook-name>` is validated against the list of built-in git hook names from [`githooks(5)`](https://git-scm.com/docs/githooks). Pass `--force` (`-f`) to skip the check — useful when working with a git fork or with a hook newer than the krok release you have installed.
 - The job key is derived from the command (ASCII alphanumeric characters, spaces replaced with `-`).
-- Returns an error if a job with the same key already exists for that hook.
+- Registering a command already registered for that hook changes nothing: krok says so, leaves the config as it is, and succeeds, so a script that bootstraps a checkout can be re-run. A different command that happens to derive the same key is numbered rather than refused.
 - If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/krok/<hook-name>/existing` and registered as the first job so it continues to run. It is kept under the git directory rather than beside the hook, because `core.hooksPath` may be repointed later — husky does this from a build step — which would leave a copy under the hooks directory behind.
 
 **Examples:**
