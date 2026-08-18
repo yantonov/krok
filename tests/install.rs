@@ -984,11 +984,20 @@ fn config_path_prints_config_path() {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let printed = Path::new(stdout.trim_end());
     let expected = repo.join(".git").join("krok-config.yml");
+
+    // Compared as the file system resolves them, not as text. One directory can
+    // be spelled in more than one way: on macos a temporary directory is handed
+    // out below /var, which is a symlink to /private/var, and the getcwd of the
+    // process krok runs in answers with the second. Canonicalising both also
+    // asks that what was printed exists, which is the point of the command.
     assert_eq!(
-        stdout.trim_end(),
-        expected.display().to_string(),
-        "config path output did not match expected path"
+        std::fs::canonicalize(printed).expect("the printed path names a file"),
+        std::fs::canonicalize(&expected).expect("the expected path names a file"),
+        "config path printed {} rather than {}",
+        printed.display(),
+        expected.display()
     );
 }
 
