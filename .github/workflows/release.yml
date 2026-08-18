@@ -44,11 +44,24 @@ jobs:
           cd target/release
           tar -czf "${{ matrix.asset_name }}-${{ env.RELEASE_TAG }}.tar.gz" "${{ matrix.executable }}"
 
+      - name: checksum
+        run: |
+          cd target/release
+          archive="${{ matrix.asset_name }}-${{ env.RELEASE_TAG }}.tar.gz"
+          # linux and git bash carry sha256sum, macos carries shasum
+          if command -v sha256sum > /dev/null 2>&1; then
+            sha256sum "${archive}" > "${archive}.sha256"
+          else
+            shasum -a 256 "${archive}" > "${archive}.sha256"
+          fi
+          cat "${archive}.sha256"
+
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
           draft: true
           files: |
             target/release/${{ matrix.asset_name }}-${{ env.RELEASE_TAG }}.tar.gz
+            target/release/${{ matrix.asset_name }}-${{ env.RELEASE_TAG }}.tar.gz.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
