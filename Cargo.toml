@@ -1,8 +1,12 @@
 [package]
 name = "krok"
 version = "0.1.0"
+authors = ["Yury Antonov <1390348+yantonov@users.noreply.github.com>"]
 edition = "2024"
 rust-version = "1.85"
+description = "Attach multiple commands to any git hook without maintaining shell scripts"
+repository = "https://github.com/yantonov/krok"
+license = "Apache-2.0"
 
 [dependencies]
 clap = { version = "4.6.6", features = ["derive", "cargo"] }
