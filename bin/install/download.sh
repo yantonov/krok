@@ -49,7 +49,12 @@ case "${RELEASE}" in
 esac
 
 APP_NAME="krok"
-ARCHIVE_NAME="${APP_NAME}-${OS}-${RELEASE}.tar.gz"
+
+# Release assets carry the architecture as uname reports it, so nothing has to
+# be mapped here: x86_64 and aarch64 on linux, x86_64 and arm64 on macos.
+ARCH="$(uname -m)"
+
+ARCHIVE_NAME="${APP_NAME}-${OS}-${ARCH}-${RELEASE}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${RELEASE}/${ARCHIVE_NAME}"
 
 echo "Release: ${RELEASE}"
