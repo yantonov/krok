@@ -26,14 +26,14 @@ pub fn load_config(git_dir: &Path) -> Result<Config> {
     }
     let content = std::fs::read_to_string(&path)
         .with_context(|| format!("failed to read config at {}", path.display()))?;
-    let config: Config = serde_yaml::from_str(&content)
+    let config: Config = yaml_serde::from_str(&content)
         .with_context(|| format!("failed to parse config at {}", path.display()))?;
     Ok(config)
 }
 
 pub fn save_config(git_dir: &Path, config: &Config) -> Result<()> {
     let path = config_path(git_dir);
-    let content = serde_yaml::to_string(config).context("failed to serialize config")?;
+    let content = yaml_serde::to_string(config).context("failed to serialize config")?;
 
     let temporary = path.with_file_name(format!(
         "{}.{}.tmp",

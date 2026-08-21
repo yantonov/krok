@@ -76,18 +76,18 @@ fn installing_two_hooks_merges_config() {
     let config_path = repo.join(".git").join("krok-config.yml");
     let content = std::fs::read_to_string(&config_path).expect("read config");
 
-    let value: serde_yaml::Value = serde_yaml::from_str(&content).expect("parse yaml");
+    let value: yaml_serde::Value = yaml_serde::from_str(&content).expect("parse yaml");
     let hooks = value
         .get("hooks")
         .and_then(|h| h.as_mapping())
         .expect("config must contain a `hooks` mapping");
 
     assert!(
-        hooks.contains_key(serde_yaml::Value::String("pre-commit".into())),
+        hooks.contains_key(yaml_serde::Value::String("pre-commit".into())),
         "config missing pre-commit after second install: {content}"
     );
     assert!(
-        hooks.contains_key(serde_yaml::Value::String("pre-push".into())),
+        hooks.contains_key(yaml_serde::Value::String("pre-push".into())),
         "config missing pre-push after second install: {content}"
     );
 
@@ -119,7 +119,7 @@ fn add_on_uninstalled_hook_installs_wrapper_then_adds_job() {
 
     let content =
         std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
-    let value: serde_yaml::Value = serde_yaml::from_str(&content).expect("parse yaml");
+    let value: yaml_serde::Value = yaml_serde::from_str(&content).expect("parse yaml");
     let jobs = value
         .get("hooks")
         .and_then(|h| h.get("pre-commit"))
@@ -237,7 +237,7 @@ fn add_appends_multiple_jobs_to_same_hook() {
 
     let content =
         std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
-    let value: serde_yaml::Value = serde_yaml::from_str(&content).expect("parse yaml");
+    let value: yaml_serde::Value = yaml_serde::from_str(&content).expect("parse yaml");
     let jobs = value
         .get("hooks")
         .and_then(|h| h.get("pre-commit"))
@@ -276,7 +276,7 @@ fn two_commands_that_derive_one_key_both_register() {
 
     let config =
         std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
-    let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
+    let value: yaml_serde::Value = yaml_serde::from_str(&config).expect("parse yaml");
     let jobs = value
         .get("hooks")
         .and_then(|h| h.get("pre-commit"))
@@ -456,7 +456,7 @@ fn add_preserves_existing_non_krok_hook() {
 
     let config =
         std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
-    let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
+    let value: yaml_serde::Value = yaml_serde::from_str(&config).expect("parse yaml");
     let jobs = value
         .get("hooks")
         .and_then(|h| h.get("pre-commit"))
@@ -965,7 +965,7 @@ fn recover_preserves_foreign_hook() {
 
     let config =
         std::fs::read_to_string(repo.join(".git").join("krok-config.yml")).expect("read config");
-    let value: serde_yaml::Value = serde_yaml::from_str(&config).expect("parse yaml");
+    let value: yaml_serde::Value = yaml_serde::from_str(&config).expect("parse yaml");
     let jobs = value
         .get("hooks")
         .and_then(|h| h.get("pre-commit"))
