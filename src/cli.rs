@@ -1,7 +1,11 @@
 use clap::{Parser, Subcommand};
 
+// The commit is baked in by build.rs, so --version names the exact source the
+// binary was built from without the version number alone having to be enough.
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_HASH"), ")");
+
 #[derive(Parser)]
-#[command(name = "krok", version = clap::crate_version!(), about = "Git hook manager")]
+#[command(name = "krok", version = VERSION, about = "Git hook manager")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
