@@ -659,12 +659,12 @@ fn preserved_foreign_hook_of_an_older_config_runs() {
     );
 }
 
-// The case this all turns on. Husky runs `husky install` from a build step and
-// sets core.hooksPath, on every fresh checkout, which is to say after krok
-// installed. A preserved hook kept under the hooks directory is left behind by
-// that, and the job naming it stops resolving.
+// core.hooksPath is not krok's to react to. Something else - Husky running
+// `husky install` from a build step, say - may set it after krok installed;
+// krok keeps using .git/hooks regardless, so a preserved hook kept there
+// keeps resolving.
 #[test]
-fn a_preserved_hook_outlives_core_hooks_path_moving() {
+fn a_preserved_hook_outlives_core_hooks_path_changing() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();
     git_init(repo);
@@ -808,8 +808,11 @@ fn add_inside_a_submodule_reaches_the_git_directory_of_the_module() {
     );
 }
 
+// krok owns .git/hooks unconditionally. Writing the wrapper wherever
+// core.hooksPath points instead would mean writing into a directory something
+// else - Husky, say - may have put under version control.
 #[test]
-fn add_honours_core_hooks_path() {
+fn add_ignores_core_hooks_path() {
     let tmp = TempDir::new().expect("tempdir");
     let repo = tmp.path();
     git_init(repo);
@@ -818,12 +821,12 @@ fn add_honours_core_hooks_path() {
     run_krok(repo, &["add", "pre-commit", "echo hi"]);
 
     assert!(
-        repo.join("my-hooks").join("pre-commit").exists(),
-        "the wrapper ignored core.hooksPath"
+        repo.join(".git").join("hooks").join("pre-commit").exists(),
+        "the wrapper was not written to .git/hooks"
     );
     assert!(
-        !repo.join(".git").join("hooks").join("pre-commit").exists(),
-        "the wrapper was written to the default hooks directory as well"
+        !repo.join("my-hooks").join("pre-commit").exists(),
+        "the wrapper was written to core.hooksPath's directory as well"
     );
 }
 

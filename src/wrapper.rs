@@ -45,18 +45,15 @@ pub fn write_wrapper(hook_path: &Path, hook_name: &str) -> Result<()> {
 
 /// Where a foreign hook is kept once krok has taken over its file.
 ///
-/// Under the git directory rather than the hooks directory. `core.hooksPath` is
-/// not krok's to control: a tool that sets it after krok installed - husky does,
-/// from a build step, on every fresh checkout - moves the hooks directory out
-/// from under a file already written, and the job naming that file stops
-/// resolving. The git directory is also where the config naming it lives, so the
-/// two cannot come apart.
+/// Under the git directory rather than the hooks directory, alongside the
+/// config naming it, so the two cannot come apart.
 pub fn preserved_path(git_dir: &Path, hook_name: &str) -> PathBuf {
     git_dir.join("krok").join(hook_name).join("existing")
 }
 
 /// Where an earlier krok kept it: under whichever directory was the hooks
-/// directory when it ran. Read, never written.
+/// directory when it ran - back when krok still followed `core.hooksPath`
+/// rather than always using `<git_dir>/hooks`. Read, never written.
 fn legacy_preserved_path(hooks_dir: &Path, hook_name: &str) -> PathBuf {
     hooks_dir
         .join(format!("{hook_name}-hooks"))
@@ -64,8 +61,10 @@ fn legacy_preserved_path(hooks_dir: &Path, hook_name: &str) -> PathBuf {
 }
 
 /// The preserved hook wherever it may be found: where krok writes it now, then
-/// the hooks directory as it stands, then the default hooks directory an earlier
-/// krok wrote to whatever `core.hooksPath` said.
+/// wherever an earlier krok's hooks directory was - `hooks_dir` and
+/// `<git_dir>/hooks` for the common case they now coincide, and `hooks_dir`
+/// alone for a caller still passing the `core.hooksPath`-derived directory an
+/// old krok used.
 pub fn locate_preserved(git_dir: &Path, hooks_dir: &Path, hook_name: &str) -> Option<PathBuf> {
     [
         preserved_path(git_dir, hook_name),
@@ -213,8 +212,8 @@ mod tests {
         assert!(path.ends_with("krok/pre-commit/existing"), "{path:?}");
     }
 
-    // The hooks directory is the one thing the preserved hook may not be kept
-    // under, because core.hooksPath can move it after the file is written.
+    // Kept under the git directory rather than the hooks directory, alongside
+    // the config naming it.
     #[test]
     fn the_preserved_hook_is_kept_under_the_git_directory() {
         let git_dir = Path::new("/repo/.git");

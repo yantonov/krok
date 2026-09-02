@@ -95,7 +95,8 @@ Appends a new job to the named hook's job list. On the first `add` for a hook, k
 - `<hook-name>` is validated against the list of built-in git hook names from [`githooks(5)`](https://git-scm.com/docs/githooks). Pass `--force` (`-f`) to skip the check — useful when working with a git fork or with a hook newer than the krok release you have installed.
 - The job key is derived from the command (ASCII alphanumeric characters, spaces replaced with `-`).
 - Registering a command already registered for that hook changes nothing: krok says so, leaves the config as it is, and succeeds, so a script that bootstraps a checkout can be re-run. A different command that happens to derive the same key is numbered rather than refused.
-- If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/krok/<hook-name>/existing` and registered as the first job so it continues to run. It is kept under the git directory rather than beside the hook, because `core.hooksPath` may be repointed later — husky does this from a build step — which would leave a copy under the hooks directory behind.
+- If a non-krok hook script already exists at `.git/hooks/<hook-name>`, it is preserved at `.git/krok/<hook-name>/existing` and registered as the first job so it continues to run. It is kept under the git directory rather than beside the hook, alongside the config that names it.
+- krok always installs to `.git/hooks/<hook-name>`, ignoring `core.hooksPath` even if something else has set it. Following that setting would mean writing into whatever directory it names — which may be a tracked, version-controlled path (Husky's `.husky`, say) — as a side effect of a local `krok add`.
 
 **Examples:**
 
@@ -182,7 +183,7 @@ Three variables are exported to every job:
 | Variable         | Value                                          |
 |------------------|------------------------------------------------|
 | `KROK_REPO_ROOT` | Top level of the working tree                  |
-| `KROK_HOOKS_DIR` | Where hook scripts live, honouring `core.hooksPath` |
+| `KROK_HOOKS_DIR` | Where hook scripts live: `<git_dir>/hooks`     |
 | `KROK_GIT_DIR`   | The git directory shared by every worktree     |
 
 ---

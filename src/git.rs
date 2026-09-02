@@ -10,7 +10,9 @@ pub struct Repository {
     /// rather than in the one of the worktree it was written from, because the
     /// hooks it drives are shared too.
     pub git_dir: PathBuf,
-    /// Honours `core.hooksPath`.
+    /// Always `<git_dir>/hooks`. `core.hooksPath` is not consulted: krok owns
+    /// this directory, and it is never one under version control, unlike a
+    /// path something else pointed `core.hooksPath` at (Husky's `.husky`, say).
     pub hooks_dir: PathBuf,
     /// Whether `start` was the top level itself.
     pub at_root: bool,
@@ -19,16 +21,13 @@ pub struct Repository {
 /// Ask git where things are, rather than looking for a `.git` directory.
 ///
 /// Only the plainest of checkouts has one. A linked worktree and a submodule
-/// have a `.git` file naming a directory elsewhere, that directory is not the
-/// one hooks live in, and `core.hooksPath` can move them somewhere else again.
+/// have a `.git` file naming a directory elsewhere.
 pub fn discover(start: &Path) -> Result<Repository> {
     let output = Command::new("git")
         .args([
             "rev-parse",
             "--show-toplevel",
             "--git-common-dir",
-            "--git-path",
-            "hooks",
             "--show-prefix",
         ])
         .current_dir(start)
@@ -54,14 +53,16 @@ pub fn discover(start: &Path) -> Result<Repository> {
 
     let root = next("repository root")?;
     let git_dir = next("git directory")?;
-    let hooks_dir = next("hooks directory")?;
     // Empty at the top level, and the last line, so git leaves nothing to read.
     let prefix = answers.next().unwrap_or_default();
 
+    let git_dir = absolute(start, &git_dir);
+    let hooks_dir = git_dir.join("hooks");
+
     Ok(Repository {
         root: absolute(start, &root),
-        git_dir: absolute(start, &git_dir),
-        hooks_dir: absolute(start, &hooks_dir),
+        git_dir,
+        hooks_dir,
         at_root: prefix.is_empty(),
     })
 }
