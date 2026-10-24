@@ -1,18 +1,30 @@
-.PHONY: help build test lint fmt fmt-check check clean release integration-test
+.PHONY: help help-all build test lint fmt fmt-check check clean release integration-test
 
 .DEFAULT_GOAL := help
 
 help:
-	@echo "Available targets:"
-	@echo "  build             - compile"
-	@echo "  test              - run unit + integration tests"
-	@echo "  lint              - run clippy (-D warnings)"
-	@echo "  fmt               - auto-format"
-	@echo "  fmt-check         - check formatting (CI)"
-	@echo "  integration-test  - run only integration tests"
-	@echo "  release           - optimized release build"
-	@echo "  clean             - remove build artifacts"
-	@echo "  check             - lint + fmt-check + test"
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "  check    - Lint + fmt-check + test"
+	@echo "  build    - Compile (debug)"
+	@echo "  release  - Optimized release build"
+	@echo "  test     - Run unit + integration tests"
+	@echo ""
+	@echo "Run 'make help-all' for the full list, including internal targets."
+
+help-all:
+	@echo "Public targets:"
+	@echo "  check    - Lint + fmt-check + test"
+	@echo "  build    - Compile (debug)"
+	@echo "  release  - Optimized release build"
+	@echo "  test     - Run unit + integration tests"
+	@echo ""
+	@echo "Internal targets (typically called via check):"
+	@echo "  lint             - Run clippy (-D warnings)"
+	@echo "  fmt              - Auto-format"
+	@echo "  fmt-check        - Check formatting (CI)"
+	@echo "  integration-test - Run only integration tests"
+	@echo "  clean            - Remove build artifacts"
 
 build:
 	cargo build
